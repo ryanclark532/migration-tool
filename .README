@@ -1,0 +1,9 @@
+
+Store datetime and verision of the last migration
+
+Calculate all the "update" files that havent been run
+
+Generate a down file for each update file, sorted by a "vX" folder. Down file will be the same name of the original with a postfix .down
+
+Mirgate "up" will run all the files in the "update" and increment the version
+
