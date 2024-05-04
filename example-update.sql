@@ -10,8 +10,6 @@ IF NOT EXISTS (
 BEGIN
   ALTER TABLE [dbo].[CdrRequestOpenBankingStatementHistory]
   ADD [AccountName] VARCHAR(256) NULL;
-  ADD CONSTRAINT pk_orders PRIMARY KEY (order_id);
-
-
+  ADD [AccountNumber] VARCHAR(256) NULL;
 END
 

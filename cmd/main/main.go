@@ -11,6 +11,7 @@ type TokenType int
 
 const (
 	TokenIdentifier TokenType = iota
+	TokenInitiator
 	TokenKeyword
 	TokenOperator
 	TokenDelimiter
@@ -18,6 +19,7 @@ const (
 	TokenNumber
 	TokenComment
 	TokenWhitespace
+	TokenEOF
 )
 
 type Token struct {
@@ -25,29 +27,44 @@ type Token struct {
 	Value string
 }
 
-var initators = map[string]struct{}{}
+type Query struct {
+	Resource     string
+	ResourceName string
+	Action       string
+	Columns      []QueryColumn
+}
+type QueryColumn struct {
+	ColumnName string
+	Action     string
+}
+
+var initators = map[string]struct{}{
+	"SELECT": {},
+	"DELETE": {},
+	"UPDATE": {},
+	"INSERT": {},
+	"CREATE": {},
+	"ALTER":  {},
+	"DROP":   {},
+}
 
 var keywords = map[string]struct{}{
-	"SELECT":     {},
 	"FROM":       {},
 	"WHERE":      {},
 	"GROUP BY":   {},
 	"ORDER BY":   {},
-	"INSERT":     {},
 	"INTO":       {},
 	"VALUES":     {},
-	"UPDATE":     {},
 	"SET":        {},
-	"DELETE":     {},
-	"CREATE":     {},
 	"TABLE":      {},
-	"DROP":       {},
-	"ALTER":      {},
 	"ADD":        {},
 	"PRIMARY":    {},
 	"KEY":        {},
 	"FOREIGN":    {},
 	"REFERENCES": {},
+	"DATABASE":   {},
+	"INDEX":      {},
+	"PROCEDURE":  {},
 }
 
 var operators = map[string]struct{}{
@@ -158,10 +175,13 @@ func tokenize(input string) []Token {
 		tokens = append(tokens, Token{Type: getTokenType(token.String()), Value: token.String()})
 	}
 
-	return tokens
+	return append(tokens, Token{Type: TokenEOF})
 }
 
 func getTokenType(token string) TokenType {
+	if _, ok := initators[token]; ok {
+		return TokenInitiator
+	}
 	if _, ok := keywords[token]; ok {
 		return TokenKeyword
 	}
@@ -196,36 +216,64 @@ func main() {
 
 	tokens := tokenize(input.String())
 
-	generateDown(tokens)
+	queries, err := GroupQuerys(tokens)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, query := range queries {
+		fmt.Print(query.Action+" ", query.Resource+" ", query.ResourceName+" ")
+		for _, resource := range query.Columns {
+			fmt.Print(resource.Action+" ", resource.ColumnName+" ")
+		}
+	}
 }
 
-func generateDown(tokens []Token) {
+func GroupQuerys(tokens []Token) ([]Query, error) {
+	var queries []Query
 	for i := 0; i < len(tokens); i++ {
-		if tokens[i].Type != TokenKeyword {
+		elem := tokens[i]
+		if elem.Type != TokenInitiator {
 			continue
 		}
 
-		switch tokens[i].Value {
-		case "CREATE":
-			switch tokens[i+1].Value {
-			case "TABLE":
-				tableName := tokens[i+2].Value
-				fmt.Printf("Delete Table %s \n", tableName)
-			}
-		case "ALTER":
-			switch tokens[i+1].Value {
-			case "TABLE":
-				tableName := tokens[i+2].Value
-				fmt.Printf("Alter Table %s \n", tableName)
-				var opp string
-				if tokens[i+4].Type == TokenKeyword {
-					opp = fmt.Sprintf("%s %s", tokens[i+3].Value, tokens[i+4].Value)
-				} else {
-					opp = tokens[i+3].Value
-				}
-				fmt.Printf("%s: %s\n", opp, keywordInverse[opp])
-			}
+		tableName, err := getElementIfExists(tokens, i+1)
+		if err != nil {
+			return nil, err
 		}
 
+		resource, err := getElementIfExists(tokens, i+2)
+		if err != nil {
+			return nil, err
+		}
+
+		i += 2
+		var columns []QueryColumn
+		for {
+			elem, err := getElementIfExists(tokens, i)
+			if err != nil {
+				break
+			}
+			if elem.Type != TokenKeyword {
+				i++
+				continue
+			}
+
+			name, err := getElementIfExists(tokens, i+1)
+			if err != nil {
+				break
+			}
+			columns = append(columns, QueryColumn{Action: elem.Value, ColumnName: name.Value})
+			i += 2
+		}
+		queries = append(queries, Query{Action: elem.Value, Resource: tableName.Value, ResourceName: resource.Value, Columns: columns})
 	}
+	return queries, nil
+}
+
+func getElementIfExists[T any](arr []T, i int) (*T, error) {
+	if i < 0 || i >= len(arr) {
+		return nil, fmt.Errorf("error accessing index: %v", i)
+	}
+	return &arr[i], nil
 }
