@@ -17,6 +17,8 @@ const (
 	Alter     TokenType = "ALTER"
 	Create    TokenType = "CREATE"
 	Add       TokenType = "ADD"
+	Table     TokenType = "TABLE"
+	Procedure TokenType = "PROCEDURE"
 )
 
 type Token struct {
@@ -52,9 +54,11 @@ func isNumber(character rune) bool {
 }
 
 var Keyword = map[string]Token{
-	"ALTER":  CreateToken(Alter, "ALTER"),
-	"CREATE": CreateToken(Create, "CREATE"),
-	"ADD":    CreateToken(Add, "ADD"),
+	"ALTER":     CreateToken(Alter, "ALTER"),
+	"CREATE":    CreateToken(Create, "CREATE"),
+	"ADD":       CreateToken(Add, "ADD"),
+	"TABLE":     CreateToken(Table, "TABLE"),
+	"PROCEDURE": CreateToken(Procedure, "PROCEDURE"),
 }
 
 func IsKeyword(token Token) bool {

@@ -1,20 +1,22 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"ryanclark532/migration-tool/internal/down"
 	"ryanclark532/migration-tool/internal/lexer"
 	"ryanclark532/migration-tool/internal/paser"
 )
 
 func main() {
-	content, err := os.ReadFile("./example-update.sql")
+	content, err := os.ReadFile("./testing/in/example.sql")
 	if err != nil {
 		panic(err)
 	}
 
 	tokenizer := lexer.NewTokenizer(string(content))
 	parser := paser.CreateParser(&tokenizer)
+
+	var queries []paser.Query
 
 	for {
 		query := parser.GetNextQuery()
@@ -26,10 +28,9 @@ func main() {
 			continue
 		}
 
-		fmt.Println(query)
+		queries = append(queries, query)
 	}
 
-	q := parser.GetNextQuery()
+	down.GenerateDown(queries)
 
-	fmt.Println(q)
 }

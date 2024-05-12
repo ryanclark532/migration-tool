@@ -1,7 +1,6 @@
 package paser
 
 import (
-	"fmt"
 	"ryanclark532/migration-tool/internal/lexer"
 )
 
@@ -36,9 +35,14 @@ func (p *Parser) GetNextQuery() Query {
 		action := p.curr
 
 		p.readNext()
+
+		resource := p.curr
+
 		p.readNext()
 
 		tableName := p.curr
+
+		var columns []Column
 
 		for {
 			p.readNext()
@@ -49,19 +53,27 @@ func (p *Parser) GetNextQuery() Query {
 			if !lexer.IsKeyword(p.curr) {
 				continue
 			}
-			fmt.Println(p.curr.Literal)
+
+			action := p.curr
+
+			p.readNext()
+
+			name := p.curr
+
+			columns = append(columns, Column{Name: name, Action: action})
 		}
 
-		return Query{Action: action, TableName: tableName}
+		return Query{Action: action, ResourceName: tableName, Resource: resource, Columns: columns}
 	}
 	p.readNext()
 	return Query{Action: lexer.Token{Type_: lexer.Illegal}}
 }
 
 type Query struct {
-	Action    lexer.Token
-	TableName lexer.Token
-	Columns   []Column
+	Action       lexer.Token
+	ResourceName lexer.Token
+	Resource     lexer.Token
+	Columns      []Column
 }
 
 type Column struct {
