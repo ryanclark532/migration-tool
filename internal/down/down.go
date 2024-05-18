@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func GenerateDown(querys []paser.Query) {
+func GenerateDown(querys []paser.Query, filename string) {
 	var builder strings.Builder
 	for _, query := range querys {
 
@@ -22,7 +22,7 @@ func GenerateDown(querys []paser.Query) {
 
 	}
 
-	os.WriteFile("./testing/out/down.sql", []byte(builder.String()), os.ModeAppend)
+	os.WriteFile(fmt.Sprintf("./testing/out/%s", filename), []byte(builder.String()), os.ModeAppend)
 
 }
 
