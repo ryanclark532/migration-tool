@@ -20,12 +20,12 @@ func (s *SqlServer) Connect() error {
 	if err != nil {
 		return err
 	}
-	s.conn = db
+	s.Conn = db
 	return nil
 }
 
 func (s SqlServer) Close() {
-	s.conn.Close()
+	s.Conn.Close()
 }
 
 func (s SqlServer) getServerObjects() ([]SchemaObject, error) {
@@ -39,7 +39,7 @@ func (s SqlServer) getServerObjects() ([]SchemaObject, error) {
 	WHERE 
  	   schema_id = SCHEMA_ID('dbo');
 	`
-	rows, err := s.conn.Query(sqlContent)
+	rows, err := s.Conn.Query(sqlContent)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (s SqlServer) getTableColumns(tableName string) ([]Column, error) {
 	WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '%s';
 	`, tableName)
 
-	rows, err := s.conn.Query(sqlContent)
+	rows, err := s.Conn.Query(sqlContent)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s SqlServer) getTableContrains(tablename string) ([]Constraint, error) {
  	   tc.constraint_name, kc.ordinal_position;
 	`, tablename)
 
-	rows, err := s.conn.Query(sql)
+	rows, err := s.Conn.Query(sql)
 	var constraints []Constraint
 	for rows.Next() {
 		var t Constraint
@@ -124,7 +124,7 @@ func (s SqlServer) getTableIndexes(tableName string) ([]Index, error) {
  	   idx.name, ic.key_ordinal;
 	`, tableName)
 
-	rows, err := s.conn.Query(sql)
+	rows, err := s.Conn.Query(sql)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (s SqlServer) getProcedureDetails(procName string) (Procedure, error) {
 	    object_id = OBJECT_ID('%s');
 	`, procName)
 
-	rows, err := s.conn.Query(sql)
+	rows, err := s.Conn.Query(sql)
 	if err != nil {
 		return Procedure{}, err
 	}

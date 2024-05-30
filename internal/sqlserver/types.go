@@ -14,7 +14,7 @@ type SqlServer struct {
 	User     string
 	Password string
 	Database string
-	conn     *sql.DB
+	Conn     *sql.DB
 }
 
 type Database struct {

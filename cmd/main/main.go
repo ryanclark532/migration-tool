@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"ryanclark532/migration-tool/internal/migrate"
 	"ryanclark532/migration-tool/internal/sqlserver"
 )
 
 func main() {
 	//Get State of the Database before migration
-	server := sqlserver.SqlServer{
+	server := &sqlserver.SqlServer{
 		Server:   "localhost",
 		Port:     1433,
 		User:     "sa",
@@ -20,12 +20,12 @@ func main() {
 		panic(err)
 	}
 
-	db, err := server.GetDatabaseState()
+	_, err = server.GetDatabaseState()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(db)
+	migrate.DoMigration(server)
 
 	//Execute update scripts and increment version
 
