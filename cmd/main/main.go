@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ryanclark532/migration-tool/internal/differ"
 	"ryanclark532/migration-tool/internal/migrate"
 	"ryanclark532/migration-tool/internal/sqlserver"
 )
@@ -20,18 +21,19 @@ func main() {
 		panic(err)
 	}
 
-	_, err = server.GetDatabaseState()
+	original, err := server.GetDatabaseState()
 	if err != nil {
 		panic(err)
 	}
 
 	migrate.DoMigration(server)
 
-	//Execute update scripts and increment version
+	post, err:= server.GetDatabaseState()
+	if err != nil {
+		panic(err)
+	}
 
-	//get post migration database state
-
-	//calculate diff between states
+	differ.GetDiff(original, post)
 
 	//Use dif to produce a "down script for the version"
 

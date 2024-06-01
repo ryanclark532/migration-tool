@@ -1,2 +1,5 @@
 ALTER TABLE Employees
 ADD Email NVARCHAR(255);
+
+ALTER TABLE Employees
+DROP COLUMN FirstName; 

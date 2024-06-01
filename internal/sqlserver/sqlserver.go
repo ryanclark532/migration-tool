@@ -51,7 +51,7 @@ func (s SqlServer) getServerObjects() ([]SchemaObject, error) {
 		var t SchemaObject
 		_ = rows.Scan(&t.Name, &t.ObjectName, &t.ObjectType)
 
-		if strings.HasPrefix(t.ObjectName, "spt_") || t.ObjectName == "MSreplication_options" {
+		if strings.HasPrefix(t.ObjectName, "spt_") || t.ObjectName == "MSreplication_options" || t.ObjectName=="Migrations" {
 			continue
 		}
 		schemaObjects = append(schemaObjects, t)
@@ -203,7 +203,7 @@ func (s SqlServer) GetDatabaseState() (*Database, error) {
 
 	}
 	return &Database{
-		tables: tables,
-		procs:  procedures,
+		Tables: tables,
+		Procs:  procedures,
 	}, nil
 }

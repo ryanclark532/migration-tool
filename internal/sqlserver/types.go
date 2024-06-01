@@ -18,8 +18,8 @@ type SqlServer struct {
 }
 
 type Database struct {
-	tables []Table
-	procs  []Procedure
+	Tables []Table
+	Procs  []Procedure
 }
 
 type Procedure struct {
