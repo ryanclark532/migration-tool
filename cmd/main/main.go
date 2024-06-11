@@ -26,7 +26,7 @@ func main() {
 		panic(err)
 	}
 
-	migrate.DoMigration(server)
+	migrate.DoMigration(server.Conn)
 
 	post, err:= server.GetDatabaseState()
 	if err != nil {
