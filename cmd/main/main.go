@@ -21,6 +21,11 @@ func main() {
 		panic(err)
 	}
 
+	version,err := server.GetLatestVersion()
+	if err != nil{
+		panic(err)
+	}
+
 	original, err := server.GetDatabaseState()
 	if err != nil {
 		panic(err)
@@ -33,43 +38,8 @@ func main() {
 		panic(err)
 	}
 
-	differ.GetDiff(original, post)
 
-	//Use dif to produce a "down script for the version"
+	differ.GetDiff(original, post, version)
 
 	server.Close()
 }
-
-/*
-func main() {
-
-	files := utils.CrawlDir("./testing/in")
-
-	for _, file := range files {
-		content, err := os.ReadFile(fmt.Sprintf("./testing/in/%s", file))
-		if err != nil {
-			panic(err)
-		}
-
-		tokenizer := lexer.NewTokenizer(string(content))
-		parser := paser.CreateParser(&tokenizer)
-
-		var queries []paser.Query
-
-		for {
-			query := parser.GetNextQuery()
-			if query.Action.Type_ == lexer.Eof {
-				break
-			}
-
-			if query.Action.Type_ == lexer.Illegal {
-				continue
-			}
-
-			queries = append(queries, query)
-		}
-
-		down.GenerateDown(queries, file[:len(file)-4]+".down.sql")
-	}
-}
-*/

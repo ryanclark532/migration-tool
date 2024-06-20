@@ -3,10 +3,21 @@ package sqlserver
 import (
 	"database/sql"
 	"fmt"
+	"ryanclark532/migration-tool/internal/common"
 	"strings"
 
 	_ "github.com/denisenkom/go-mssqldb"
 )
+
+
+type SqlServer struct {
+	Server   string
+	Port     int
+	User     string
+	Password string
+	Database string
+	Conn     *sql.DB
+}
 
 func (s *SqlServer) Connect() error {
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s",
@@ -28,7 +39,7 @@ func (s SqlServer) Close() {
 	s.Conn.Close()
 }
 
-func (s SqlServer) getServerObjects() ([]SchemaObject, error) {
+func (s SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 	sqlContent := `
 	SELECT 
     schema_name(schema_id) AS schema_name,
@@ -45,10 +56,10 @@ func (s SqlServer) getServerObjects() ([]SchemaObject, error) {
 	}
 	defer rows.Close()
 
-	var schemaObjects []SchemaObject
+	var schemaObjects []common.SchemaObject
 
 	for rows.Next() {
-		var t SchemaObject
+		var t common.SchemaObject
 		_ = rows.Scan(&t.Name, &t.ObjectName, &t.ObjectType)
 
 		if strings.HasPrefix(t.ObjectName, "spt_") || t.ObjectName == "MSreplication_options" || t.ObjectName=="Migrations" {
@@ -59,7 +70,7 @@ func (s SqlServer) getServerObjects() ([]SchemaObject, error) {
 	return schemaObjects, nil
 }
 
-func (s SqlServer) getTableColumns(tableName string) ([]Column, error) {
+func (s SqlServer) getTableColumns(tableName string) ([]common.Column, error) {
 	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE
 	FROM INFORMATION_SCHEMA.COLUMNS
 	WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '%s';
@@ -70,16 +81,16 @@ func (s SqlServer) getTableColumns(tableName string) ([]Column, error) {
 		return nil, err
 	}
 
-	var columns []Column
+	var columns []common.Column
 	for rows.Next() {
-		var t Column
+		var t common.Column
 		_ = rows.Scan(&t.Name, &t.Type)
 		columns = append(columns, t)
 	}
 	return columns, err
 }
 
-func (s SqlServer) getTableContrains(tablename string) ([]Constraint, error) {
+func (s SqlServer) getTableContrains(tablename string) ([]common.Constraint, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     tc.constraint_name AS constraint_name,
@@ -96,16 +107,16 @@ func (s SqlServer) getTableContrains(tablename string) ([]Constraint, error) {
 	`, tablename)
 
 	rows, err := s.Conn.Query(sql)
-	var constraints []Constraint
+	var constraints []common.Constraint
 	for rows.Next() {
-		var t Constraint
+		var t common.Constraint
 		_ = rows.Scan(&t.Name, &t.ColumnName, &t.Type)
 		constraints = append(constraints, t)
 	}
 	return constraints, err
 }
 
-func (s SqlServer) getTableIndexes(tableName string) ([]Index, error) {
+func (s SqlServer) getTableIndexes(tableName string) ([]common.Index, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     idx.name AS index_name,
@@ -128,16 +139,16 @@ func (s SqlServer) getTableIndexes(tableName string) ([]Index, error) {
 	if err != nil {
 		return nil, err
 	}
-	var indexes []Index
+	var indexes []common.Index
 	for rows.Next() {
-		var t Index
+		var t common.Index
 		_ = rows.Scan(&t.Name, &t.Type, &t.ColumnName, &t.Position)
 		indexes = append(indexes, t)
 	}
 	return indexes, err
 }
 
-func (s SqlServer) getProcedureDetails(procName string) (Procedure, error) {
+func (s SqlServer) getProcedureDetails(procName string) (common.Procedure, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     definition
@@ -149,24 +160,24 @@ func (s SqlServer) getProcedureDetails(procName string) (Procedure, error) {
 
 	rows, err := s.Conn.Query(sql)
 	if err != nil {
-		return Procedure{}, err
+		return common.Procedure{}, err
 	}
 
 	var description string
 	for rows.Next() {
 		_ = rows.Scan(&description)
 	}
-	return Procedure{Name: procName, Definition: strings.TrimSpace(description)}, nil
+	return common.Procedure{Name: procName, Definition: strings.TrimSpace(description)}, nil
 }
 
-func (s SqlServer) GetDatabaseState() (*Database, error) {
+func (s SqlServer) GetDatabaseState() (*common.Database, error) {
 	objects, err := s.getServerObjects()
 	if err != nil {
 		panic(err)
 	}
 
-	var tables []Table
-	var procedures []Procedure
+	var tables []common.Table
+	var procedures []common.Procedure
 
 	for _, object := range objects {
 		switch object.ObjectType {
@@ -185,7 +196,7 @@ func (s SqlServer) GetDatabaseState() (*Database, error) {
 			if err != nil {
 				return nil, err
 			}
-			t := Table{
+			t := common.Table{
 				Columns:    columns,
 				Name:       object.ObjectName,
 				Contraints: constraints,
@@ -202,8 +213,20 @@ func (s SqlServer) GetDatabaseState() (*Database, error) {
 		}
 
 	}
-	return &Database{
+	return &common.Database{
 		Tables: tables,
 		Procs:  procedures,
 	}, nil
+}
+func (s SqlServer) GetLatestVersion() (int, error) {
+	sql := `SELECT MAX(Version) FROM Migrations`
+
+	rows := s.Conn.QueryRow(sql)
+
+	version := 0
+	err := rows.Scan(&version)
+	if err != nil && strings.Contains(err.Error(), "converting NULL to int is unsupported") {
+		err = nil
+	}
+	return version + 1, err
 }
