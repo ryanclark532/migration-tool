@@ -19,7 +19,7 @@ func DropTable(builder *strings.Builder, tableName string){
 }
 
 func DropColumn(builder *strings.Builder, tableName string, columnName string){
-	builder.WriteString(fmt.Sprintf(`ALTER TABLE %s\n DROP COLUMN %s;\n`, tableName, columnName))
+	builder.WriteString(fmt.Sprintf(`ALTER TABLE %s DROP COLUMN %s;\n`, tableName, columnName))
 }
 
 func AlterColumn(builder *strings.Builder, tableName string, column Column){

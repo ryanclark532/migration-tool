@@ -15,4 +15,4 @@ build:
 	go build -o ./bin/$(BINARY_NAME) $(SRC)
 
 test: 
-	go build -o ./bin/$(TESTING_BINARY_NAME) $(TEST_SRC) && ./bin/$(TESTING_BINARY_NAME)
+	go build -o ./bin/$(TESTING_BINARY_NAME) $(TEST_SRC) && ./bin/$(TESTING_BINARY_NAME) && rm server.db

@@ -6,6 +6,7 @@ import (
 	"os"
 	"ryanclark532/migration-tool/internal/utils"
 	"strings"
+	"time"
 )
 
 func DoMigration(conn *sql.DB, version int) {
@@ -87,7 +88,7 @@ func HandleFolder(conn *sql.DB, builder *strings.Builder, folderName string, fil
 			continue
 		}
 
-		sql := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Type, Version, FileName) VALUES (GETDATE(), '%s', %d, '%s')", folderName, version, file)
+		sql := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Type, Version, FileName) VALUES ('%s', '%s', %d, '%s')", time.Now(),folderName, version, file)
 		_, err = conn.Exec(sql)
 		if err != nil {
 			fmt.Printf("%s: Error processing %s: %s\n", folderName, file, err.Error())

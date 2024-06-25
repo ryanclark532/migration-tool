@@ -8,66 +8,72 @@ import (
 	"strings"
 )
 
-
-type processedColumn struct {
-	Name      string
-	TableName string
-}
-
-func GetDiff(original *common.Database, post *common.Database, version int) error {
+func GetDiff(original []common.Table, post []common.Table, version int) error {
 	processedTables := make(map[string]bool)
 	processedColumns := make(map[string]bool)
 
 	var builder strings.Builder
 
-	// Process original tables
-	for _, table := range original.Tables {
-		processedTables[table.Name] = true
-		postTableIndex := slices.IndexFunc(post.Tables, func(t common.Table) bool { return t.Name == table.Name })
-		if postTableIndex == -1 {
-			common.DropTable(&builder, table.Name)
+	for _, table := range original {
+		if table.Name == "Migrations" {
 			continue
 		}
-		diffTable(&builder, &table, &post.Tables[postTableIndex], processedColumns)
-	}
 
-	// Process post tables
-	for _, table := range post.Tables {
-		if _, exists := processedTables[table.Name]; exists {
-			for _, column := range table.Columns {
-				key := fmt.Sprintf("%s.%s", table.Name, column.Name)
-				if _, exists := processedColumns[key]; !exists {
-					common.AddColumn(&builder, table.Name, column)
-				}
-			}
+		postIndex := slices.IndexFunc(post, func(t common.Table) bool { return t.Name == table.Name })
+
+		if postIndex != -1 {
+			//table exists both in original and post proceed to diff table
+			diffTable(&builder, table, post[postIndex], processedColumns)
+			processedTables[table.Name] = true
 		} else {
+			//table exists in original but not in post, therefore dropped during migration. Create table
 			common.CreateTable(&builder, table.Name, table.Columns)
 		}
 	}
 
+
+	for _, table:= range post {
+		if table.Name == "Migrations" {
+			continue
+		}
+
+		if _, exists := processedTables[table.Name]; exists {
+			//we  have already touched this table and can assume it exists in both old and new, therefore continue to columns 
+			for _, column := range table.Columns {
+				if _, exists := processedColumns[fmt.Sprintf("%s.%s", table.Name, column.Name)]; !exists {
+					//we havent touched this column so can assume it exists in post but not pre, therefor drop column
+					common.DropColumn(&builder,table.Name, column.Name)
+				}
+			}
+		} else {
+			//we havent touched this table and can assume it exists in post but not pre migration, therefore  drop table
+			common.DropTable(&builder, table.Name )
+		}
+	}
+
 	if builder.Len() != 0 {
-	err := os.WriteFile(fmt.Sprintf("./output/down/%d-down.sql", version), []byte(builder.String()), os.ModeAppend)
-	return err
+		err := os.WriteFile(fmt.Sprintf("./output/down/%d-down.sql", version), []byte(builder.String()), os.ModeAppend)
+		return err
 	}
 	return nil
 }
 
-func diffTable(builder *strings.Builder, old *common.Table, post *common.Table, processedColumns map[string]bool) {
+func diffTable(builder *strings.Builder, old common.Table, post common.Table, processedColumns map[string]bool) {
 	for _, column := range old.Columns {
-		key := fmt.Sprintf("%s.%s", old.Name, column.Name)
-		processedColumns[key] = true
-		postColumnIndex := slices.IndexFunc(post.Columns, func(c common.Column) bool { return column.Name == c.Name })
-		if postColumnIndex == -1 {
-			common.DropColumn(builder, old.Name, column.Name)
-			continue
+		postIndex := slices.IndexFunc(post.Columns, func(c common.Column) bool { return c.Name == column.Name })
+		if postIndex != -1 {
+			//column exists on table both pre and post migration, continue to diff column
+			diffColumn(builder,column, post.Columns[postIndex], old.Name)
+			processedColumns[fmt.Sprintf("%s.%s", old.Name, column.Name)] = true
+		} else {
+			//column exists on the old table but not the new. Add column
+			common.AddColumn(builder, old.Name, column)
 		}
-		diffColumn(builder, &column, &post.Columns[postColumnIndex], old.Name)
 	}
 }
 
-func diffColumn(builder *strings.Builder, old *common.Column, post *common.Column, tableName string) {
+func diffColumn(builder *strings.Builder, old common.Column, post common.Column, tableName string) {
 	if old.Type != post.Type {
-		common.AlterColumn(builder, tableName, *old)
+		common.AlterColumn(builder, tableName, post)
 	}
 }
-
