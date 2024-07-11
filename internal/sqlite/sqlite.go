@@ -3,8 +3,8 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"ryanclark532/migration-tool/internal/common"
 	_ "github.com/mattn/go-sqlite3"
+	"ryanclark532/migration-tool/internal/common"
 	"strings"
 )
 
@@ -13,34 +13,34 @@ type SqLiteServer struct {
 	Conn     *sql.DB
 }
 
-func (s *SqLiteServer) Connect() error {
+func (s *SqLiteServer) Connect() (*sql.DB, error) {
 	//get serve file from options
 	db, err := sql.Open("sqlite3", s.FilePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = db.Ping()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	s.Conn = db
-	return nil
+	return db, nil
 }
 
-func (s SqLiteServer) Close() {
-	s.Conn.Close()
+func (s *SqLiteServer) Close() error {
+	return s.Conn.Close()
 }
 
-func(s SqLiteServer) getTables() ([]common.Table, error){
-	sql := `SELECT name FROM sqlite_master WHERE type='table'`
-	rows, err := s.Conn.Query(sql)
+func (s *SqLiteServer) getTables() ([]common.Table, error) {
+	sqlBatch := `SELECT name FROM sqlite_master WHERE type='table'`
+	rows, err := s.Conn.Query(sqlBatch)
 	if err != nil {
 		return nil, err
 	}
 
 	var tables []common.Table
 	for rows.Next() {
-		var table common.Table 
+		var table common.Table
 		err = rows.Scan(&table.Name)
 		if err != nil {
 			return nil, err
@@ -49,7 +49,7 @@ func(s SqLiteServer) getTables() ([]common.Table, error){
 		if err != nil {
 			return nil, err
 		}
-		table.Columns =  columns
+		table.Columns = columns
 
 		tables = append(tables, table)
 
@@ -57,42 +57,41 @@ func(s SqLiteServer) getTables() ([]common.Table, error){
 	return tables, nil
 }
 
-
-func (s SqLiteServer) GetTableColumns(tableName string) ([]common.Column, error) {
-	sql:= fmt.Sprintf(`SELECT name, type FROM pragma_table_info('%s');`, tableName)	
-	rows, err:= s.Conn.Query(sql)
-	if err !=nil {
-		return nil , err
+func (s *SqLiteServer) GetTableColumns(tableName string) ([]common.Column, error) {
+	sqlBatch := fmt.Sprintf(`SELECT name, type FROM pragma_table_info('%s');`, tableName)
+	rows, err := s.Conn.Query(sqlBatch)
+	if err != nil {
+		return nil, err
 	}
 
 	var columns []common.Column
 
 	for rows.Next() {
 		var col common.Column
-		err = rows.Scan(&col.Name ,&col.Type)
+		err = rows.Scan(&col.Name, &col.Type)
 		if err != nil {
 			return nil, err
 		}
 		columns = append(columns, col)
-			
+
 	}
 	return columns, nil
 }
 
-func (s SqLiteServer) GetDatabaseState() (*common.Database, error) {
+func (s *SqLiteServer) GetDatabaseState() (*common.Database, error) {
 	tables, err := s.getTables()
 	if err != nil {
 		return nil, err
 	}
 	return &common.Database{
-	Tables: tables,
+		Tables: tables,
 	}, nil
 }
 
-func (s SqLiteServer) GetLatestVersion() (int, error) {
-	sql := `SELECT MAX(Version) FROM Migrations`
+func (s *SqLiteServer) GetLatestVersion() (int, error) {
+	sqlBatch := `SELECT MAX(Version) FROM Migrations`
 
-	rows := s.Conn.QueryRow(sql)
+	rows := s.Conn.QueryRow(sqlBatch)
 
 	version := 0
 	err := rows.Scan(&version)

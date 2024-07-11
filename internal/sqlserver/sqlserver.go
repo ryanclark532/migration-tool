@@ -9,7 +9,6 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
-
 type SqlServer struct {
 	Server   string
 	Port     int
@@ -19,27 +18,27 @@ type SqlServer struct {
 	Conn     *sql.DB
 }
 
-func (s *SqlServer) Connect() error {
+func (s *SqlServer) Connect() (*sql.DB, error) {
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s",
 		s.Server, s.User, s.Password, s.Port, s.Database)
 
 	db, err := sql.Open("sqlserver", connString)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = db.Ping()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	s.Conn = db
-	return nil
+	return db, nil
 }
 
-func (s SqlServer) Close() {
-	s.Conn.Close()
+func (s *SqlServer) Close() error {
+	return s.Conn.Close()
 }
 
-func (s SqlServer) getServerObjects() ([]common.SchemaObject, error) {
+func (s *SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 	sqlContent := `
 	SELECT 
     schema_name(schema_id) AS schema_name,
@@ -62,7 +61,7 @@ func (s SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 		var t common.SchemaObject
 		_ = rows.Scan(&t.Name, &t.ObjectName, &t.ObjectType)
 
-		if strings.HasPrefix(t.ObjectName, "spt_") || t.ObjectName == "MSreplication_options" || t.ObjectName=="Migrations" {
+		if strings.HasPrefix(t.ObjectName, "spt_") || t.ObjectName == "MSreplication_options" || t.ObjectName == "Migrations" {
 			continue
 		}
 		schemaObjects = append(schemaObjects, t)
@@ -70,7 +69,7 @@ func (s SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 	return schemaObjects, nil
 }
 
-func (s SqlServer) getTableColumns(tableName string) ([]common.Column, error) {
+func (s *SqlServer) getTableColumns(tableName string) ([]common.Column, error) {
 	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE
 	FROM INFORMATION_SCHEMA.COLUMNS
 	WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '%s';
@@ -90,7 +89,7 @@ func (s SqlServer) getTableColumns(tableName string) ([]common.Column, error) {
 	return columns, err
 }
 
-func (s SqlServer) getTableContrains(tablename string) ([]common.Constraint, error) {
+func (s *SqlServer) getTableContrains(tablename string) ([]common.Constraint, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     tc.constraint_name AS constraint_name,
@@ -116,7 +115,7 @@ func (s SqlServer) getTableContrains(tablename string) ([]common.Constraint, err
 	return constraints, err
 }
 
-func (s SqlServer) getTableIndexes(tableName string) ([]common.Index, error) {
+func (s *SqlServer) getTableIndexes(tableName string) ([]common.Index, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     idx.name AS index_name,
@@ -148,7 +147,7 @@ func (s SqlServer) getTableIndexes(tableName string) ([]common.Index, error) {
 	return indexes, err
 }
 
-func (s SqlServer) getProcedureDetails(procName string) (common.Procedure, error) {
+func (s *SqlServer) getProcedureDetails(procName string) (common.Procedure, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     definition
@@ -170,7 +169,7 @@ func (s SqlServer) getProcedureDetails(procName string) (common.Procedure, error
 	return common.Procedure{Name: procName, Definition: strings.TrimSpace(description)}, nil
 }
 
-func (s SqlServer) GetDatabaseState() (*common.Database, error) {
+func (s *SqlServer) GetDatabaseState() (*common.Database, error) {
 	objects, err := s.getServerObjects()
 	if err != nil {
 		panic(err)
@@ -218,7 +217,7 @@ func (s SqlServer) GetDatabaseState() (*common.Database, error) {
 		Procs:  procedures,
 	}, nil
 }
-func (s SqlServer) GetLatestVersion() (int, error) {
+func (s *SqlServer) GetLatestVersion() (int, error) {
 	sql := `SELECT MAX(Version) FROM Migrations`
 
 	rows := s.Conn.QueryRow(sql)
