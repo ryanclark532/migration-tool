@@ -91,8 +91,8 @@ func HandleFolder(conn *sql.DB, builder *strings.Builder, folderName string, fil
 			continue
 		}
 
-		sql := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Type, Version, FileName) VALUES ('%s', '%s', %d, '%s')", time.Now(), folderName, version, file)
-		_, err = conn.Exec(sql)
+		sqlBatch := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Type, Version, FileName) VALUES ('%s', '%s', %d, '%s')", time.Now(), folderName, version, file)
+		_, err = conn.Exec(sqlBatch)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
 			continue
@@ -106,9 +106,9 @@ func HandleFolder(conn *sql.DB, builder *strings.Builder, folderName string, fil
 }
 
 func GetFilesForType(conn *sql.DB) (map[string]string, error) {
-	sql := ("SELECT FileName, Type From Migrations")
+	sqlBatch := ("SELECT FileName, Type From Migrations")
 	processedFiles := make(map[string]string)
-	rows, err := conn.Query(sql)
+	rows, err := conn.Query(sqlBatch)
 	if err != nil {
 		return processedFiles, err
 	}
