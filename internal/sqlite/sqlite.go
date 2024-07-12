@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"ryanclark532/migration-tool/internal/common"
@@ -14,7 +15,6 @@ type SqLiteServer struct {
 }
 
 func (s *SqLiteServer) Connect() (*sql.DB, error) {
-	//get serve file from options
 	db, err := sql.Open("sqlite3", s.FilePath)
 	if err != nil {
 		return nil, err
@@ -29,6 +29,28 @@ func (s *SqLiteServer) Connect() (*sql.DB, error) {
 
 func (s *SqLiteServer) Close() error {
 	return s.Conn.Close()
+}
+
+func (s *SqLiteServer) Setup(migrationTable string) error {
+	var exists string
+	sqlBatch := `SELECT name FROM sqlite_master WHERE type='table' AND name=?;`
+	err := s.Conn.QueryRow(sqlBatch, migrationTable).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+		sqlBatch := fmt.Sprintf(`CREATE TABLE %s(
+			EnterDateTime DATETIME2,
+			Type VARCHAR(256), 
+			Version INTEGER, 
+			FileName VARCHAR(256)
+		);`, migrationTable)
+		_, err = s.Conn.Exec(sqlBatch)
+		if err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
 }
 
 func (s *SqLiteServer) getTables() ([]common.Table, error) {

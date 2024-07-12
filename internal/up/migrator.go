@@ -4,16 +4,19 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"ryanclark532/migration-tool/internal/common"
 	"ryanclark532/migration-tool/internal/utils"
 	"strings"
 	"time"
 )
 
-func DoMigration(conn *sql.DB, version int) {
-	//handle tables folder
-	tables := utils.CrawlDir("./testing/tables")
+func DoMigration(conn *sql.DB, version int, config common.Config) {
+	tables, err := utils.CrawlDir(fmt.Sprintf("%s/tables", config.InputDir))
+	if len(tables) == 0 || err != nil {
+		fmt.Println("No tables files, or tables folder doesnt exist in input directory")
+	}
 	for _, file := range tables {
-		contents, err := os.ReadFile(fmt.Sprintf("./testing/tables/%s", file))
+		contents, err := os.ReadFile(fmt.Sprintf("%s/tables/%s", config.InputDir, file))
 		if err != nil {
 			fmt.Printf("Tables: Error processing %s: %s\n", file, err.Error())
 			continue
@@ -34,16 +37,16 @@ func DoMigration(conn *sql.DB, version int) {
 
 	var builder strings.Builder
 
-	errors := HandleFolder(conn, &builder, "updates", filesForType, version)
+	errors := HandleFolder(conn, &builder, "updates", filesForType, version, config)
 	if len(errors) != 0 {
-		fmt.Println("errors: ")
+		fmt.Println("Skipped Files: ")
 		for _, err := range errors {
 			fmt.Println(err.Error())
 		}
 	}
 
 	if builder.Len() != 0 {
-		err := os.WriteFile(fmt.Sprintf("output/up/%d-up.sql", version), []byte(builder.String()), os.ModeAppend)
+		err := os.WriteFile(fmt.Sprintf("%s/up/%d-up.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
 		if err != nil {
 			panic(err)
 		}
@@ -52,47 +55,46 @@ func DoMigration(conn *sql.DB, version int) {
 			panic(err)
 		}
 	}
-	fmt.Printf("Migration Successfulll, Version: %d\n", version)
+	fmt.Printf("Migration Successfull, Version: %d\n", version)
 
 }
 
-func HandleFolder(conn *sql.DB, builder *strings.Builder, folderName string, filesForType map[string]string, version int) []error {
+func HandleFolder(conn *sql.DB, builder *strings.Builder, folderName string, filesForType map[string]string, version int, config common.Config) []error {
 	var errors []error
-	for _, file := range utils.CrawlDir(fmt.Sprintf("./testing/%s", folderName)) {
+	files, err := utils.CrawlDir(fmt.Sprintf("%s/%s", config.InputDir, folderName))
+	if len(files) == 0 || err != nil {
+		fmt.Printf("No %s files, or %s folder doesnt exist in input directory\n", folderName, folderName)
+	}
+	for _, file := range files {
 		val, ex := filesForType[file]
 		if ex && val == folderName {
-			fmt.Printf("%s: Skipping %s, as its already been run\n", folderName, file)
 			errors = append(errors, fmt.Errorf("%s: Skipping %s, as its already been run", folderName, file))
 			continue
 		}
 
-		contents, err := os.ReadFile(fmt.Sprintf("./testing/updates/%s", file))
+		contents, err := os.ReadFile(fmt.Sprintf("%s/updates/%s", config.InputDir, file))
 		if err != nil {
-			fmt.Printf("%s: Error processing %s: %s\n", folderName, file, err.Error())
-			errors = append(errors, err)
+			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
 			continue
 		}
 
 		tx, _ := conn.Begin()
 		_, err = tx.Exec(string(contents))
 		if err != nil {
-			fmt.Printf("%s: Error processing %s: %s\n", folderName, file, err.Error())
-			errors = append(errors, err)
+			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
 			continue
 		}
 
 		err = tx.Rollback()
 		if err != nil {
-			fmt.Printf("%s: Error processing %s: %s\n", folderName, file, err.Error())
-			errors = append(errors, err)
+			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
 			continue
 		}
 
-		sql := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Type, Version, FileName) VALUES ('%s', '%s', %d, '%s')", time.Now(),folderName, version, file)
+		sql := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Type, Version, FileName) VALUES ('%s', '%s', %d, '%s')", time.Now(), folderName, version, file)
 		_, err = conn.Exec(sql)
 		if err != nil {
-			fmt.Printf("%s: Error processing %s: %s\n", folderName, file, err.Error())
-			errors = append(errors, err)
+			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
 			continue
 		}
 
@@ -125,4 +127,3 @@ func GetFilesForType(conn *sql.DB) (map[string]string, error) {
 
 	return processedFiles, nil
 }
-

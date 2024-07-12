@@ -1,0 +1,7 @@
+{
+  "db_type": "Sqlite",
+  "file_path": "database.db",
+  "output_dir": "output",
+  "input_dir": "testing",
+  "migration_table_name": "Migrations"
+}

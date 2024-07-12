@@ -3,33 +3,20 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"flag"
+	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
 	"ryanclark532/migration-tool/internal/down"
 	"ryanclark532/migration-tool/internal/sqlite"
-	"ryanclark532/migration-tool/internal/sqlserver"
 	"ryanclark532/migration-tool/internal/up"
-	"strconv"
 )
-
-const sqlserverType = "Sqlserver"
 
 type Database interface {
 	Connect() (*sql.DB, error)
 	GetDatabaseState() (*common.Database, error)
 	GetLatestVersion() (int, error)
 	Close() error
-}
-
-type config struct {
-	dbType   string
-	filePath string
-	name     string
-	port     int
-	user     string
-	password string
-	database string
+	Setup(migrationTable string) error
 }
 
 func main() {
@@ -40,26 +27,22 @@ func main() {
 		panic("Unable to load config, please provide a json file, config in an .env file, or cli flags, use -h for more information")
 	}
 
-	switch c.dbType {
-	case sqlserverType:
-		s := sqlserver.SqlServer{
-			Server:   c.name,
-			Port:     c.port,
-			User:     c.user,
-			Password: c.password,
-			Database: c.database,
-		}
-		execute(&s)
+	switch c.DbType {
 	default:
 		s := sqlite.SqLiteServer{
-			FilePath: c.filePath,
+			FilePath: c.FilePath,
 		}
-		execute(&s)
+		execute(&s, *c)
 	}
 }
 
-func execute(server Database) {
+func execute(server Database, config common.Config) {
 	conn, err := server.Connect()
+	if err != nil {
+		panic(err)
+	}
+
+	err = server.Setup(config.MigrationTableName)
 	if err != nil {
 		panic(err)
 	}
@@ -74,7 +57,7 @@ func execute(server Database) {
 		panic(err)
 	}
 
-	up.DoMigration(conn, version)
+	up.DoMigration(conn, version, config)
 
 	post, err := server.GetDatabaseState()
 	if err != nil {
@@ -92,29 +75,31 @@ func execute(server Database) {
 	}
 }
 
-func loadJson() *config {
+func loadJson() *common.Config {
 	jsonFile, err := os.ReadFile("migration-settings.json")
 	if err != nil {
 		panic(err)
 	}
-	var c config
+	var c common.Config
 	err = json.Unmarshal(jsonFile, &c)
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Loaded config from migration-settings.json")
 	return &c
 }
 
+/*
 func loanEnv() *config {
 	p, err := strconv.ParseInt(os.Getenv("port"), 0, 8)
 	if err != nil {
 		panic(err)
 	}
 	return &config{
-		dbType:   os.Getenv("dbType"),
-		filePath: os.Getenv("filePath"),
-		name:     os.Getenv("database"),
-		port:     int(p),
+		DbType:   os.Getenv("dbType"),
+		FilePath: os.Getenv("filePath"),
+		Name:     os.Getenv("database"),
+		Port:     int(p),
 		user:     os.Getenv("user"),
 		password: os.Getenv("password"),
 		database: os.Getenv("database"),
@@ -125,13 +110,13 @@ func loanEnv() *config {
 func loadFlags() *config {
 	c := config{}
 
-	flag.StringVar(&c.dbType, "type", "Sqlite", "The type of the Database, e.g Sqlite, SqlServer")
+	flag.StringVar(&c.DbType, "type", "Sqlite", "The type of the Database, e.g Sqlite, SqlServer")
 
-	flag.StringVar(&c.filePath, "path", "./database.db", "If type if Sqlite, path to database file")
+	flag.StringVar(&c.FilePath, "path", "./database.db", "If type if Sqlite, path to database file")
 
-	flag.StringVar(&c.name, "server", "database", "The FQDN of the Server")
+	flag.StringVar(&c.Name, "server", "database", "The FQDN of the Server")
 
-	flag.IntVar(&c.port, "port", 0, "The port the database is listening on")
+	flag.IntVar(&c.Port, "port", 0, "The port the database is listening on")
 
 	flag.StringVar(&c.user, "user", "user", "The username to authenticate against the database")
 
@@ -143,3 +128,4 @@ func loadFlags() *config {
 
 	return &c
 }
+*/
