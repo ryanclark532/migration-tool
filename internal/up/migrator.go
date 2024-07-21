@@ -10,39 +10,56 @@ import (
 	"time"
 )
 
-func DoMigration(conn *sql.DB, version int, config common.Config) {
-	tables, err := utils.CrawlDir(fmt.Sprintf("%s/tables", config.InputDir))
-	if len(tables) == 0 || err != nil {
-		fmt.Println("No tables files, or tables folder doesnt exist in input directory")
-	}
-	for _, file := range tables {
-		contents, err := os.ReadFile(fmt.Sprintf("%s/tables/%s", config.InputDir, file))
-		if err != nil {
-			fmt.Printf("Tables: Error processing %s: %s\n", file, err.Error())
-			continue
-		}
-		_, err = conn.Exec(string(contents))
-		if err != nil {
-			fmt.Printf("Tables: Error processing %s: %s\n", file, err.Error())
-			continue
-		}
-
-		fmt.Println("Tables: Processed " + file)
-	}
-
-	filesForType, err := GetFilesForType(conn)
+func DoMigration(conn *sql.DB, version int, config common.Config) []error {
+	completedfiles, err := CompletedFiles(conn)
 	if err != nil {
-		fmt.Println(err)
+		errors := []error{err}
+		return errors
 	}
 
 	var builder strings.Builder
+	var errors []error
 
-	errors := HandleFolder(conn, &builder, "updates", filesForType, version, config)
-	if len(errors) != 0 {
-		fmt.Println("Skipped Files: ")
-		for _, err := range errors {
-			fmt.Println(err.Error())
+	files, err := utils.CrawlDir(config.InputDir)
+	for _, file := range files {
+		_, ex := completedfiles[file]
+		if ex == true {
+			fmt.Printf("skipping %s, as its already been run\n", file)
+			continue
 		}
+
+		contents, err := os.ReadFile(fmt.Sprintf("%s/%s", config.InputDir, file))
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			continue
+		}
+
+		tx, _ := conn.Begin()
+		_, err = tx.Exec(string(contents))
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			continue
+		}
+
+		err = tx.Rollback()
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			continue
+		}
+
+		sqlBatch := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Version, FileName) VALUES ('%s', %d, '%s')", time.Now(), version, file)
+		_, err = conn.Exec(sqlBatch)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			continue
+		}
+
+		builder.WriteString(string(contents))
+		fmt.Printf("processed %s\n", file)
+	}
+
+	if len(errors) != 0 {
+		return errors
 	}
 
 	if builder.Len() != 0 {
@@ -56,74 +73,81 @@ func DoMigration(conn *sql.DB, version int, config common.Config) {
 		}
 	}
 	fmt.Printf("Migration Successfull, Version: %d\n", version)
-
+	return nil
 }
 
-func HandleFolder(conn *sql.DB, builder *strings.Builder, folderName string, filesForType map[string]string, version int, config common.Config) []error {
-	var errors []error
-	files, err := utils.CrawlDir(fmt.Sprintf("%s/%s", config.InputDir, folderName))
-	if len(files) == 0 || err != nil {
-		fmt.Printf("No %s files, or %s folder doesnt exist in input directory\n", folderName, folderName)
+func DoDryMigration(conn *sql.DB, version int, config common.Config) []error {
+	completedfiles, err := CompletedFiles(conn)
+	if err != nil {
+		errors := []error{err}
+		return errors
 	}
+
+	var builder strings.Builder
+	var errors []error
+
+	files, err := utils.CrawlDir(config.InputDir)
 	for _, file := range files {
-		val, ex := filesForType[file]
-		if ex && val == folderName {
-			errors = append(errors, fmt.Errorf("%s: Skipping %s, as its already been run", folderName, file))
+		_, ex := completedfiles[file]
+		if ex == true {
+			fmt.Printf("skipping %s, as its already been run\n", file)
 			continue
 		}
 
-		contents, err := os.ReadFile(fmt.Sprintf("%s/updates/%s", config.InputDir, file))
+		contents, err := os.ReadFile(fmt.Sprintf("%s/%s", config.InputDir, file))
 		if err != nil {
-			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			continue
 		}
 
 		tx, _ := conn.Begin()
 		_, err = tx.Exec(string(contents))
 		if err != nil {
-			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			continue
 		}
 
 		err = tx.Rollback()
 		if err != nil {
-			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			continue
 		}
 
-		sqlBatch := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Type, Version, FileName) VALUES ('%s', '%s', %d, '%s')", time.Now(), folderName, version, file)
+		sqlBatch := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Version, FileName) VALUES ('%s', %d, '%s')", time.Now(), version, file)
 		_, err = conn.Exec(sqlBatch)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("Error processing %s: %s", file, err.Error()))
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			continue
 		}
 
 		builder.WriteString(string(contents))
-		fmt.Printf("%s: Processed %s\n", folderName, file)
+		fmt.Printf("processed %s\n", file)
 	}
 
-	return errors
+	if len(errors) != 0 {
+		return errors
+	}
+
+	fmt.Printf("Migration Successfull, Version: %d\n", version)
+	return nil
 }
 
-func GetFilesForType(conn *sql.DB) (map[string]string, error) {
-	sqlBatch := ("SELECT FileName, Type From Migrations")
-	processedFiles := make(map[string]string)
+func CompletedFiles(conn *sql.DB) (map[string]bool, error) {
+	sqlBatch := ("SELECT FileName From Migrations")
+	fileNames := make(map[string]bool)
 	rows, err := conn.Query(sqlBatch)
 	if err != nil {
-		return processedFiles, err
+		return nil, err
 	}
 
 	for rows.Next() {
-		var x struct {
-			FileName string
-			TypeName string
-		}
-		err = rows.Scan(&x.FileName, &x.TypeName)
+		var fileName string
+		err = rows.Scan(&fileName)
 		if err != nil {
-			return processedFiles, err
+			return fileNames, err
 		}
-		processedFiles[x.FileName] = x.TypeName
+		fileNames[fileName] = true
 	}
 
-	return processedFiles, nil
+	return fileNames, nil
 }

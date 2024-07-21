@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
@@ -23,6 +24,10 @@ func main() {
 
 	c := loadJson()
 
+	dryRun := flag.Bool("dry-run", false, "Run in dry-run mode")
+
+	flag.Parse()
+
 	if c == nil {
 		panic("Unable to load config, please provide a json file, config in an .env file, or cli flags, use -h for more information")
 	}
@@ -32,11 +37,11 @@ func main() {
 		s := sqlite.SqLiteServer{
 			FilePath: c.FilePath,
 		}
-		execute(&s, *c)
+		execute(&s, *c, *dryRun)
 	}
 }
 
-func execute(server Database, config common.Config) {
+func execute(server Database, config common.Config, dryRun bool) {
 	conn, err := server.Connect()
 	if err != nil {
 		panic(err)
@@ -52,21 +57,32 @@ func execute(server Database, config common.Config) {
 		panic(err)
 	}
 
-	original, err := server.GetDatabaseState()
-	if err != nil {
-		panic(err)
-	}
+	if !dryRun {
+		original, err := server.GetDatabaseState()
+		if err != nil {
+			panic(err)
+		}
 
-	up.DoMigration(conn, version, config)
+		errs := up.DoMigration(conn, version, config)
+		if len(errs) > 0 {
+			panic(errs[0])
+		}
 
-	post, err := server.GetDatabaseState()
-	if err != nil {
-		panic(err)
-	}
+		post, err := server.GetDatabaseState()
+		if err != nil {
+			panic(err)
+		}
 
-	err = down.GetDiff(original.Tables, post.Tables, version)
-	if err != nil {
-		panic(err)
+		err = down.GetTableDiff(original.Tables, post.Tables, version, config)
+		if err != nil {
+			panic(err)
+		}
+
+	} else {
+		errs := up.DoDryMigration(conn, version, config)
+		if len(errs) > 0 {
+			panic(errs[0])
+		}
 	}
 
 	err = server.Close()
@@ -123,8 +139,6 @@ func loadFlags() *config {
 	flag.StringVar(&c.password, "password", "password", "The password to authenticate against the database")
 
 	flag.StringVar(&c.database, "database", "database", "The name of the database of the server")
-
-	flag.Parse()
 
 	return &c
 }

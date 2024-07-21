@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func GetDiff(original []common.Table, post []common.Table, version int) error {
+func GetTableDiff(original []common.Table, post []common.Table, version int, config common.Config) error {
 	processedTables := make(map[string]bool)
 	processedColumns := make(map[string]bool)
 
@@ -52,7 +52,7 @@ func GetDiff(original []common.Table, post []common.Table, version int) error {
 	}
 
 	if builder.Len() != 0 {
-		err := os.WriteFile(fmt.Sprintf("./output/down/%d-down.sql", version), []byte(builder.String()), os.ModeAppend)
+		err := os.WriteFile(fmt.Sprintf("%s/down/%d-tables-down.sql",config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
 		return err
 	}
 	return nil

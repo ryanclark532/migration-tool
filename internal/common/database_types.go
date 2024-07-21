@@ -9,36 +9,31 @@ type SchemaObject struct {
 }
 
 type Database struct {
-	Tables []Table
-	Procs  []Procedure
+	Tables map[string]Table
+	Procs  map[string]Procedure
 }
 
 type Procedure struct {
-	Name       string
 	Definition string
 }
 
 type Table struct {
-	Name       string
-	Columns    []Column
-	Contraints []Constraint
-	Indexes    []Index
+	Columns    map[string]Column
+	Contraints map[string]Constraint
+	Indexes    map[string]Index
 }
 
 type Constraint struct {
-	Name       string
 	ColumnName string
 	Type       string
 }
 
 type Index struct {
-	Name       string
 	Type       string
 	ColumnName string
 	Position   string
 }
 
 type Column struct {
-	Name string
 	Type string
 }

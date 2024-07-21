@@ -39,7 +39,6 @@ func (s *SqLiteServer) Setup(migrationTable string) error {
 		err = nil
 		sqlBatch := fmt.Sprintf(`CREATE TABLE %s(
 			EnterDateTime DATETIME2,
-			Type VARCHAR(256), 
 			Version INTEGER, 
 			FileName VARCHAR(256)
 		);`, migrationTable)

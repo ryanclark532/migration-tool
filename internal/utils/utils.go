@@ -11,10 +11,13 @@ func CrawlDir(startingDir string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
-			return nil
+		if !info.IsDir() {
+			relativePath, err := filepath.Rel(startingDir, path)
+			if err != nil {
+				return err
+			}
+			fileNames = append(fileNames, relativePath)
 		}
-		fileNames = append(fileNames, info.Name())
 		return nil
 	})
 	return fileNames, err
