@@ -10,6 +10,7 @@ import (
 	"ryanclark532/migration-tool/internal/down"
 	"ryanclark532/migration-tool/internal/sqlite"
 	"ryanclark532/migration-tool/internal/up"
+	"strings"
 )
 
 type Database interface {
@@ -73,10 +74,15 @@ func execute(server Database, config common.Config, dryRun bool) {
 			panic(err)
 		}
 
-		err = down.GetTableDiff(original.Tables, post.Tables, version, config)
-		if err != nil {
+		var builder strings.Builder
+
+		 down.GetTableDiff(original.Tables, post.Tables, version, &builder)
+		 down.GetProcDiff(original.Procs, &builder)
+
+		if builder.Len() != 0 {
+			err := os.WriteFile(fmt.Sprintf("%s/down/%d-down.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
 			panic(err)
-		}
+	}
 
 	} else {
 		errs := up.DoDryMigration(conn, version, config)

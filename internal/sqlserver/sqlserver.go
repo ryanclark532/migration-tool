@@ -69,7 +69,7 @@ func (s *SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 	return schemaObjects, nil
 }
 
-func (s *SqlServer) getTableColumns(tableName string) ([]common.Column, error) {
+func (s *SqlServer) getTableColumns(tableName string) (map[string]common.Column, error) {
 	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE
 	FROM INFORMATION_SCHEMA.COLUMNS
 	WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '%s';
@@ -80,16 +80,18 @@ func (s *SqlServer) getTableColumns(tableName string) ([]common.Column, error) {
 		return nil, err
 	}
 
-	var columns []common.Column
+	columns:= make(map[string]common.Column)
 	for rows.Next() {
-		var t common.Column
-		_ = rows.Scan(&t.Name, &t.Type)
-		columns = append(columns, t)
+		var col common.Column
+		var colName string
+		_ = rows.Scan(&colName, &col.Type)
+
+		columns[colName] = col
 	}
 	return columns, err
 }
 
-func (s *SqlServer) getTableContrains(tablename string) ([]common.Constraint, error) {
+func (s *SqlServer) getTableContrains(tablename string) (map[string]common.Constraint, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     tc.constraint_name AS constraint_name,
@@ -106,16 +108,17 @@ func (s *SqlServer) getTableContrains(tablename string) ([]common.Constraint, er
 	`, tablename)
 
 	rows, err := s.Conn.Query(sql)
-	var constraints []common.Constraint
+	constraints := make(map[string]common.Constraint)
 	for rows.Next() {
-		var t common.Constraint
-		_ = rows.Scan(&t.Name, &t.ColumnName, &t.Type)
-		constraints = append(constraints, t)
+		var con common.Constraint
+		var conName string
+		_ = rows.Scan(&conName, &con.ColumnName, &con.Type)
+		constraints[conName] = con
 	}
 	return constraints, err
 }
 
-func (s *SqlServer) getTableIndexes(tableName string) ([]common.Index, error) {
+func (s *SqlServer) getTableIndexes(tableName string) (map[string]common.Index, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     idx.name AS index_name,
@@ -138,11 +141,12 @@ func (s *SqlServer) getTableIndexes(tableName string) ([]common.Index, error) {
 	if err != nil {
 		return nil, err
 	}
-	var indexes []common.Index
+	indexes := make(map[string]common.Index)
 	for rows.Next() {
-		var t common.Index
-		_ = rows.Scan(&t.Name, &t.Type, &t.ColumnName, &t.Position)
-		indexes = append(indexes, t)
+		var index common.Index
+		var indexName string
+		_ = rows.Scan(&indexName, &index.Type, &index.ColumnName, &index.Position)
+		indexes[indexName] = index
 	}
 	return indexes, err
 }
@@ -166,7 +170,7 @@ func (s *SqlServer) getProcedureDetails(procName string) (common.Procedure, erro
 	for rows.Next() {
 		_ = rows.Scan(&description)
 	}
-	return common.Procedure{Name: procName, Definition: strings.TrimSpace(description)}, nil
+	return common.Procedure{Definition: strings.TrimSpace(description)}, nil
 }
 
 func (s *SqlServer) GetDatabaseState() (*common.Database, error) {
@@ -175,8 +179,8 @@ func (s *SqlServer) GetDatabaseState() (*common.Database, error) {
 		panic(err)
 	}
 
-	var tables []common.Table
-	var procedures []common.Procedure
+	tables := make(map[string]common.Table) 
+	procedures:= make(map[string]common.Procedure)
 
 	for _, object := range objects {
 		switch object.ObjectType {
@@ -197,18 +201,17 @@ func (s *SqlServer) GetDatabaseState() (*common.Database, error) {
 			}
 			t := common.Table{
 				Columns:    columns,
-				Name:       object.ObjectName,
 				Contraints: constraints,
 				Indexes:    indexes,
 			}
-			tables = append(tables, t)
+			tables[object.Name] = t
 
 		case "SQL_STORED_PROCEDURE":
 			proc, err := s.getProcedureDetails(object.ObjectName)
 			if err != nil {
 				return nil, err
 			}
-			procedures = append(procedures, proc)
+			procedures[object.Name] = proc 
 		}
 
 	}

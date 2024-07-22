@@ -52,48 +52,50 @@ func (s *SqLiteServer) Setup(migrationTable string) error {
 	return nil
 }
 
-func (s *SqLiteServer) getTables() ([]common.Table, error) {
+func (s *SqLiteServer) getTables() (map[string]common.Table, error) {
 	sqlBatch := `SELECT name FROM sqlite_master WHERE type='table'`
 	rows, err := s.Conn.Query(sqlBatch)
 	if err != nil {
 		return nil, err
 	}
 
-	var tables []common.Table
+	tables := make(map[string]common.Table)
 	for rows.Next() {
-		var table common.Table
-		err = rows.Scan(&table.Name)
+		var tableName string
+		err = rows.Scan(&tableName)
 		if err != nil {
 			return nil, err
 		}
-		columns, err := s.GetTableColumns(table.Name)
+		var table common.Table
+		columns, err := s.GetTableColumns(tableName)
 		if err != nil {
 			return nil, err
 		}
 		table.Columns = columns
 
-		tables = append(tables, table)
+		tables[tableName] = table
 
 	}
 	return tables, nil
 }
 
-func (s *SqLiteServer) GetTableColumns(tableName string) ([]common.Column, error) {
+func (s *SqLiteServer) GetTableColumns(tableName string) (map[string]common.Column, error) {
 	sqlBatch := fmt.Sprintf(`SELECT name, type FROM pragma_table_info('%s');`, tableName)
 	rows, err := s.Conn.Query(sqlBatch)
 	if err != nil {
 		return nil, err
 	}
 
-	var columns []common.Column
+	columns := make(map[string]common.Column)
 
 	for rows.Next() {
+		var colName string
 		var col common.Column
-		err = rows.Scan(&col.Name, &col.Type)
+		err = rows.Scan(&colName, &col.Type)
 		if err != nil {
 			return nil, err
 		}
-		columns = append(columns, col)
+		columns[colName] = col
 
 	}
 	return columns, nil
@@ -120,4 +122,36 @@ func (s *SqLiteServer) GetLatestVersion() (int, error) {
 		err = nil
 	}
 	return version + 1, err
+}
+
+func (s *SqLiteServer) GetTableIndexes(tableName string) (map[string]common.Index, error) {
+	sql := fmt.Sprintf(`
+SELECT 
+    idx.name AS index_name,
+    'index' AS index_type,  
+    info.name AS column_name,
+    info.seqno + 1 AS column_position  
+FROM 
+    sqlite_master AS idx
+JOIN 
+    pragma_index_info(idx.name) AS info
+WHERE 
+    idx.type = 'index'
+    AND idx.tbl_name = '%s'
+ORDER BY 
+    idx.name, info.seqno;
+	`, tableName)
+
+	rows, err := s.Conn.Query(sql)
+	if err != nil {
+		return nil, err
+	}
+	indexes := make(map[string]common.Index)
+	for rows.Next() {
+		var index common.Index
+		var indexName string
+		_ = rows.Scan(&indexName, &index.Type, &index.ColumnName, &index.Position)
+		indexes[indexName] = index
+	}
+	return indexes, err
 }
