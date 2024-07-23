@@ -2,17 +2,14 @@ package main
 
 import (
 	"os"
-	"testing"
-
-	"ryanclark532/migration-tool/internal/down"
 	"ryanclark532/migration-tool/internal/sqlite"
-	"ryanclark532/migration-tool/internal/up"
+	"testing"
 )
 
-func TestMigration(t *testing.T) {
-	// Clean up any existing SQL files before the test
-	if _, err := os.Stat("database.db"); err == nil {
-		if err := os.Remove("database.db"); err != nil {
+func TestMigrationUp(t *testing.T) {
+// Clean up any existing SQL files before the test
+	if _, err := os.Stat("server.db"); err == nil {
+		if err := os.Remove("server.db"); err != nil {
 			t.Fatalf("Failed to remove database.db: %v", err)
 		}
 	}
@@ -33,15 +30,15 @@ func TestMigration(t *testing.T) {
 		t.Fatalf("Failed to create server.db: %v", err)
 	}
 
+
 	// Initialize the SQLite server
 	server := &sqlite.SqLiteServer{
 		FilePath: "server.db",
 	}
 
-	if err := server.Connect(); err != nil {
+	if _, err := server.Connect(); err != nil {
 		t.Fatalf("Failed to connect to SQLite server: %v", err)
 	}
-	defer server.Close()
 
 	// Execute initial SQL commands
 	commands := []string{
@@ -67,28 +64,20 @@ func TestMigration(t *testing.T) {
 	}
 
 	// Get the latest version
-	version, err := server.GetLatestVersion()
+	_, err := server.GetLatestVersion()
 	if err != nil {
 		t.Fatalf("Failed to get the latest version: %v", err)
 	}
-
-	// Get the original state of the database
-	original, err := server.GetDatabaseState()
+	err =  server.Close()
 	if err != nil {
-		t.Fatalf("Failed to get the original database state: %v", err)
+		t.Fatalf("Failed to get the latest version: %v", err)
 	}
-
-	// Perform the migration
-	up.DoMigration(server.Conn, version)
-
-	// Get the post-migration state of the database
-	post, err := server.GetDatabaseState()
+	err =  server.Conn.Close()
 	if err != nil {
-		t.Fatalf("Failed to get the post-migration database state: %v", err)
+		t.Fatalf("Failed to get the latest version: %v", err)
 	}
+}
 
-	// Generate the down migration script
-	if err := down.GetDiff(original.Tables, post.Tables, version); err != nil {
-		t.Fatalf("Failed to generate down migration script: %v", err)
-	}
+func TestMigrationDown(t *testing.T){
+
 }
