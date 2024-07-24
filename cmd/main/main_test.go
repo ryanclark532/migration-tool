@@ -1,83 +1,95 @@
 package main
 
 import (
+	"io/fs"
 	"os"
+	"ryanclark532/migration-tool/internal/common"
+	"ryanclark532/migration-tool/internal/execute"
 	"ryanclark532/migration-tool/internal/sqlite"
 	"testing"
 )
 
-func TestMigrationUp(t *testing.T) {
-// Clean up any existing SQL files before the test
-	if _, err := os.Stat("server.db"); err == nil {
-		if err := os.Remove("server.db"); err != nil {
-			t.Fatalf("Failed to remove database.db: %v", err)
-		}
-	}
-	if _, err := os.Stat("./output/down/1-down.sql"); err == nil {
-		if err := os.Remove("./output/down/1-down.sql"); err != nil {
-			t.Fatalf("Failed to remove ./output/down/1-down.sql: %v", err)
-		}
-	}
-
-	if _, err := os.Stat("./output/up/1-up.sql"); err == nil {
-		if err := os.Remove("./output/up/1-up.sql"); err != nil {
-			t.Fatalf("Failed to remove ./output/up/1-up.sql: %v", err)
-		}
-	}
-
-	// Create server.db file
-	if _, err := os.Create("server.db"); err != nil {
-		t.Fatalf("Failed to create server.db: %v", err)
-	}
-
-
-	// Initialize the SQLite server
-	server := &sqlite.SqLiteServer{
-		FilePath: "server.db",
-	}
-
-	if _, err := server.Connect(); err != nil {
-		t.Fatalf("Failed to connect to SQLite server: %v", err)
-	}
-
-	// Execute initial SQL commands
-	commands := []string{
-		`CREATE TABLE Migrations(
-			EnterDateTime DATETIME2,
-			Type VARCHAR(256), 
-			Version INTEGER, 
-			FileName VARCHAR(256)
-		);`,
-		`CREATE TABLE Employees (
+var commands = []string{
+	`CREATE TABLE Employees (
 			Name VARCHAR(256)
 		);`,
-		`CREATE TABLE Users (
+	`CREATE TABLE Users (
 			Email VARCHAR(256),
 			Name VARCHAR(256)
 		);`,
-	}
+}
 
-	for _, cmd := range commands {
-		if _, err := server.Conn.Exec(cmd); err != nil {
-			t.Fatalf("Failed to execute command '%s': %v", cmd, err)
+var config = common.Config{
+	FilePath:           "server.db",
+	InputDir:           "../../testing",
+	OutputDir:          "../../output",
+	MigrationTableName: "Migrations",
+}
+
+func setup() error {
+	// Clean up any existing SQL files before the test
+	if _, err := os.Stat(config.FilePath); err == nil {
+		if err := os.Remove(config.FilePath); err != nil {
+			return err
 		}
 	}
 
-	// Get the latest version
-	_, err := server.GetLatestVersion()
+	err := os.RemoveAll(config.OutputDir)
 	if err != nil {
-		t.Fatalf("Failed to get the latest version: %v", err)
+		return nil
 	}
-	err =  server.Close()
+
+	err = os.Mkdir(config.OutputDir, fs.ModeAppend)
 	if err != nil {
-		t.Fatalf("Failed to get the latest version: %v", err)
+		return nil
 	}
-	err =  server.Conn.Close()
+
+	err = os.Mkdir(config.OutputDir+"/up", fs.ModeAppend)
 	if err != nil {
-		t.Fatalf("Failed to get the latest version: %v", err)
+		return nil
 	}
+
+	err = os.Mkdir(config.OutputDir+"/down", fs.ModeAppend)
+	if err != nil {
+		return nil
+	}
+
+	if _, err := os.Create(config.FilePath); err != nil {
+		return err
+	}
+	return nil
 }
 
-func TestMigrationDown(t *testing.T){
+func TestMigrationUp(t *testing.T) {
+	err := setup()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Initialize the SQLite server
+	server := &sqlite.SqLiteServer{
+		FilePath: config.FilePath,
+	}
+
+	conn, err := server.Connect()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	for _, cmd := range commands {
+		_, err = conn.Exec(cmd)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+	}
+
+	err = execute.ExecuteUp(server, config, false)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+}
+
+func TestMigrationDown(t *testing.T) {
 
 }

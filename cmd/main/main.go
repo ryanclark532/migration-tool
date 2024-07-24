@@ -1,25 +1,15 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
-	"ryanclark532/migration-tool/internal/down"
+	"ryanclark532/migration-tool/internal/execute"
 	"ryanclark532/migration-tool/internal/sqlite"
-	"ryanclark532/migration-tool/internal/up"
-	"strings"
 )
 
-type Database interface {
-	Connect() (*sql.DB, error)
-	GetDatabaseState() (*common.Database, error)
-	GetLatestVersion() (int, error)
-	Close() error
-	Setup(migrationTable string) error
-}
 
 func main() {
 
@@ -38,64 +28,11 @@ func main() {
 		s := sqlite.SqLiteServer{
 			FilePath: c.FilePath,
 		}
-		execute(&s, *c, *dryRun)
-	}
-}
-
-func execute(server Database, config common.Config, dryRun bool) {
-	conn, err := server.Connect()
-	if err != nil {
-		panic(err)
-	}
-
-	err = server.Setup(config.MigrationTableName)
-	if err != nil {
-		panic(err)
-	}
-
-	version, err := server.GetLatestVersion()
-	if err != nil {
-		panic(err)
-	}
-
-	if !dryRun {
-		original, err := server.GetDatabaseState()
-		if err != nil {
-			panic(err)
-		}
-
-		errs := up.DoMigration(conn, version, config)
-		if len(errs) > 0 {
-			panic(errs[0])
-		}
-
-		post, err := server.GetDatabaseState()
-		if err != nil {
-			panic(err)
-		}
-
-		var builder strings.Builder
-
-		 down.GetTableDiff(original.Tables, post.Tables, version, &builder)
-		 down.GetProcDiff(original.Procs, &builder)
-
-		if builder.Len() != 0 {
-			err := os.WriteFile(fmt.Sprintf("%s/down/%d-down.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
-			panic(err)
-	}
-
-	} else {
-		errs := up.DoDryMigration(conn, version, config)
-		if len(errs) > 0 {
-			panic(errs[0])
-		}
-	}
-
-	err = server.Close()
-	if err != nil {
+		err := execute.ExecuteUp(&s, *c, *dryRun)
 		panic(err)
 	}
 }
+
 
 func loadJson() *common.Config {
 	jsonFile, err := os.ReadFile("migration-settings.json")

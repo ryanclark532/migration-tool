@@ -103,11 +103,13 @@ func (s *SqLiteServer) GetTableColumns(tableName string) (map[string]common.Colu
 
 func (s *SqLiteServer) GetDatabaseState() (*common.Database, error) {
 	tables, err := s.getTables()
+	procs:= make(map[string]common.Procedure)
 	if err != nil {
 		return nil, err
 	}
 	return &common.Database{
 		Tables: tables,
+		Procs: procs,
 	}, nil
 }
 
