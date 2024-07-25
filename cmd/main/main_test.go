@@ -6,6 +6,7 @@ import (
 	"ryanclark532/migration-tool/internal/common"
 	"ryanclark532/migration-tool/internal/execute"
 	"ryanclark532/migration-tool/internal/sqlite"
+	"strings"
 	"testing"
 )
 
@@ -86,6 +87,15 @@ func TestMigrationUp(t *testing.T) {
 	err = execute.ExecuteUp(server, config, false)
 	if err != nil {
 		t.Fatal(err.Error())
+	}
+
+	expected := `ALTER TABLE Users\n ADD COLUMN Name VARCHAR(256);\nALTER TABLE Employees DROP COLUMN Email;\nALTER TABLE Employees DROP COLUMN Department;\n`
+	downContent, err := os.ReadFile(config.OutputDir+"/down/1.sql")	
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if strings.TrimSpace(string(downContent)) != expected {
+		t.Fatalf("Output didnt match expected\n output: %s\n expected: %s\n",strings.TrimSpace(string(downContent)), expected )
 	}
 
 }

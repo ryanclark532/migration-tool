@@ -17,7 +17,7 @@ func GetTableDiff(original map[string]common.Table, post map[string]common.Table
 
 		if prev, ex := post[key]; ex {
 			//table exists both in original and post proceed to diff table
-			diffTable(builder, table, prev, processedColumns)
+			diffTable(builder, table, prev, processedColumns, key)
 			processedTables[key] = true
 		} else {
 			//table exists in original but not in post, therefore dropped during migration. Create table
@@ -46,15 +46,15 @@ func GetTableDiff(original map[string]common.Table, post map[string]common.Table
 
 }
 
-func diffTable(builder *strings.Builder, old common.Table, post common.Table, processedColumns map[string]bool) {
+func diffTable(builder *strings.Builder, old common.Table, post common.Table, processedColumns map[string]bool, tableName string) {
 	for key, column := range old.Columns {
 		if prev, ex := post.Columns[key]; ex {
 			//column exists on table both pre and post migration, continue to diff column
 			diffColumn(builder, column, prev, key, key)
-			processedColumns[fmt.Sprintf("%s.%s", prev, key)] = true
+			processedColumns[fmt.Sprintf("%s.%s", tableName, key)] = true
 		} else {
 			//column exists on the old table but not the new. Add column
-			common.AddColumn(builder, key, column, key)
+			common.AddColumn(builder, tableName, column, key)
 		}
 	}
 }

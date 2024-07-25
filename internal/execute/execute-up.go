@@ -55,12 +55,9 @@ func ExecuteUp(server Server, config common.Config, dryRun bool) error {
 		down.GetTableDiff(original.Tables, post.Tables, version, &builder)
 		down.GetProcDiff(original.Procs, &builder)
 
-		if builder.Len() != 0 {
-			err := os.WriteFile(fmt.Sprintf("%s/down/%d.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
-			if err != nil {
-				return err
 
-			}
+		if builder.Len() != 0 {
+			return os.WriteFile(fmt.Sprintf("%s/down/%d.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
 		}
 
 	} else {
