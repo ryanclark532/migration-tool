@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
@@ -27,8 +28,21 @@ var config = common.Config{
 	MigrationTableName: "Migrations",
 }
 
+var postState = &common.Database{Tables: map[string]common.Table{
+	"Employees": {
+		Columns: map[string]common.Column{
+			"Name": {Type: "VARCHAR(256)"},
+		},
+	},
+	"Users": {
+		Columns: map[string]common.Column{
+			"Email": {Type: "VARCHAR(256)"},
+			"Name":  {Type: "VARCHAR(256)"},
+		},
+	},
+}}
+
 func setup() error {
-	// Clean up any existing SQL files before the test
 	if _, err := os.Stat(config.FilePath); err == nil {
 		if err := os.Remove(config.FilePath); err != nil {
 			return err
@@ -89,17 +103,41 @@ func TestMigrationUp(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	expected := `ALTER TABLE Users\n ADD COLUMN Name VARCHAR(256);\nALTER TABLE Employees DROP COLUMN Email;\nALTER TABLE Employees DROP COLUMN Department;\n`
-	downContent, err := os.ReadFile(config.OutputDir+"/down/1.sql")	
+	expected := []string{"ALTER TABLE Users ADD COLUMN Name VARCHAR(256);", "ALTER TABLE Employees DROP COLUMN Email;", "ALTER TABLE Employees DROP COLUMN Department;", "DROP TABLE Payments;"}
+	c, err := os.ReadFile(config.OutputDir + "/down/1.sql")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	if strings.TrimSpace(string(downContent)) != expected {
-		t.Fatalf("Output didnt match expected\n output: %s\n expected: %s\n",strings.TrimSpace(string(downContent)), expected )
-	}
+	downContent := strings.TrimSpace(string(c))
 
+	for _, exp := range expected {
+		if !strings.Contains(downContent, exp) {
+			t.Fatalf("Output didn't match expected\n output: %s\ndoes not contain: %s", downContent, exp)
+		}
+	}
 }
 
 func TestMigrationDown(t *testing.T) {
+	server := &sqlite.SqLiteServer{
+		FilePath: config.FilePath,
+	}
+	err := execute.ExecuteDown(server, config, false)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	_, err = server.Connect()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	state, err := server.GetDatabaseState(config)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	if fmt.Sprintf("%s", state) != fmt.Sprintf("%s", postState) {
+		t.Fatalf("Output does not match expected\nExpected: %s\nGot: %s", postState, state)
+	}
 
 }

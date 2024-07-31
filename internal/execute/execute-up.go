@@ -1,7 +1,6 @@
 package execute
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
@@ -10,15 +9,8 @@ import (
 	"strings"
 )
 
-type Server interface {
-	Connect() (*sql.DB, error)
-	GetDatabaseState() (*common.Database, error)
-	GetLatestVersion() (int, error)
-	Close() error
-	Setup(migrationTable string) error
-}
-
 func ExecuteUp(server Server, config common.Config, dryRun bool) error {
+	//possibility move connect(), and setup outside of this function
 	conn, err := server.Connect()
 	if err != nil {
 		return err
@@ -35,17 +27,17 @@ func ExecuteUp(server Server, config common.Config, dryRun bool) error {
 	}
 
 	if !dryRun {
-		original, err := server.GetDatabaseState()
+		original, err := server.GetDatabaseState(config)
 		if err != nil {
 			return err
 		}
 
 		errs := up.DoMigration(conn, version, config)
 		if len(errs) > 0 {
-			return err
+			return errs[0]
 		}
 
-		post, err := server.GetDatabaseState()
+		post, err := server.GetDatabaseState(config)
 		if err != nil {
 			return err
 		}
@@ -54,7 +46,6 @@ func ExecuteUp(server Server, config common.Config, dryRun bool) error {
 
 		down.GetTableDiff(original.Tables, post.Tables, version, &builder)
 		down.GetProcDiff(original.Procs, &builder)
-
 
 		if builder.Len() != 0 {
 			return os.WriteFile(fmt.Sprintf("%s/down/%d.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)

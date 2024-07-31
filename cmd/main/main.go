@@ -8,12 +8,14 @@ import (
 	"ryanclark532/migration-tool/internal/common"
 	"ryanclark532/migration-tool/internal/execute"
 	"ryanclark532/migration-tool/internal/sqlite"
+	"ryanclark532/migration-tool/internal/sqlserver"
 )
-
 
 func main() {
 
 	c := loadJson()
+
+	operation := flag.String("operation", "up", "Migration Operation, available operations: up, down")
 
 	dryRun := flag.Bool("dry-run", false, "Run in dry-run mode")
 
@@ -23,16 +25,40 @@ func main() {
 		panic("Unable to load config, please provide a json file, config in an .env file, or cli flags, use -h for more information")
 	}
 
-	switch c.DbType {
-	default:
-		s := sqlite.SqLiteServer{
-			FilePath: c.FilePath,
-		}
-		err := execute.ExecuteUp(&s, *c, *dryRun)
+	server := getServer(c)
+
+	switch *operation {
+	case "up":
+		err := execute.ExecuteUp(server, *c, *dryRun)
 		panic(err)
+	case "down":
+		err := execute.ExecuteDown(server, *c, *dryRun)
+		panic(err)
+	default:
+		panic(fmt.Sprintf("Unsupported operation: %s", *operation))
 	}
+
 }
 
+func getServer(config *common.Config) execute.Server {
+	switch config.DbType {
+	case "Sqlite":
+		return &sqlite.SqLiteServer{
+			FilePath: config.FilePath,
+		}
+	case "sqlserver":
+		return &sqlserver.SqlServer{
+			Server:   config.Database,
+			Port:     config.Port,
+			User:     config.User,
+			Password: config.Password,
+			Database: config.Database,
+		}
+
+	default:
+		panic(fmt.Sprintf("Unsupported database type: %s", config.DbType))
+	}
+}
 
 func loadJson() *common.Config {
 	jsonFile, err := os.ReadFile("migration-settings.json")

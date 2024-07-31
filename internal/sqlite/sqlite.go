@@ -52,7 +52,7 @@ func (s *SqLiteServer) Setup(migrationTable string) error {
 	return nil
 }
 
-func (s *SqLiteServer) getTables() (map[string]common.Table, error) {
+func (s *SqLiteServer) getTables(config common.Config) (map[string]common.Table, error) {
 	sqlBatch := `SELECT name FROM sqlite_master WHERE type='table'`
 	rows, err := s.Conn.Query(sqlBatch)
 	if err != nil {
@@ -66,6 +66,10 @@ func (s *SqLiteServer) getTables() (map[string]common.Table, error) {
 		if err != nil {
 			return nil, err
 		}
+		if tableName == config.MigrationTableName {
+			continue
+		}
+
 		var table common.Table
 		columns, err := s.GetTableColumns(tableName)
 		if err != nil {
@@ -101,15 +105,15 @@ func (s *SqLiteServer) GetTableColumns(tableName string) (map[string]common.Colu
 	return columns, nil
 }
 
-func (s *SqLiteServer) GetDatabaseState() (*common.Database, error) {
-	tables, err := s.getTables()
-	procs:= make(map[string]common.Procedure)
+func (s *SqLiteServer) GetDatabaseState(config common.Config) (*common.Database, error) {
+	tables, err := s.getTables(config)
+	procs := make(map[string]common.Procedure)
 	if err != nil {
 		return nil, err
 	}
 	return &common.Database{
 		Tables: tables,
-		Procs: procs,
+		Procs:  procs,
 	}, nil
 }
 

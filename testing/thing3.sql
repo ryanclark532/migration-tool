@@ -1,3 +1,3 @@
 CREATE TABLE Payments (
-	ID VARCHAR(256);
+	ID INT
 )
