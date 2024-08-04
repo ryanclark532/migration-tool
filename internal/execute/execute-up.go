@@ -9,8 +9,7 @@ import (
 	"strings"
 )
 
-func ExecuteUp(server Server, config common.Config, dryRun bool) error {
-	//possibility move connect(), and setup outside of this function
+func Up(server Server, config common.Config, dryRun bool) error {
 	conn, err := server.Connect()
 	if err != nil {
 		return err
@@ -27,40 +26,66 @@ func ExecuteUp(server Server, config common.Config, dryRun bool) error {
 	}
 
 	if !dryRun {
-		original, err := server.GetDatabaseState(config)
-		if err != nil {
-			return err
-		}
-
-		errs := up.DoMigration(conn, version, config)
-		if len(errs) > 0 {
-			return errs[0]
-		}
-
-		post, err := server.GetDatabaseState(config)
-		if err != nil {
-			return err
-		}
-
-		var builder strings.Builder
-
-		down.GetTableDiff(original.Tables, post.Tables, version, &builder)
-		down.GetProcDiff(original.Procs, &builder)
-
-		if builder.Len() != 0 {
-			return os.WriteFile(fmt.Sprintf("%s/down/%d.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
-		}
-
+		return exec(server, config, version, conn)
 	} else {
-		errs := up.DoDryMigration(conn, version, config)
-		if len(errs) > 0 {
-			return errs[0]
-		}
+		return execDry(server, config, version)
 	}
+}
 
-	err = server.Close()
+func exec(server Server, config common.Config, version int, conn common.CommonDB) error {
+	original, err := server.GetDatabaseState(config)
 	if err != nil {
 		return err
 	}
+
+	errs := up.DoMigration(conn, version, config)
+	if len(errs) > 0 {
+		return errs[0]
+	}
+
+	post, err := server.GetDatabaseState(config)
+	if err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+
+	down.GetTableDiff(original.Tables, post.Tables, version, &builder)
+	down.GetProcDiff(original.Procs, &builder)
+
+	if builder.Len() != 0 {
+		return os.WriteFile(fmt.Sprintf("%s/down/%d.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
+	}
 	return nil
+}
+func execDry(server Server, config common.Config, version int) error {
+	tx, err := server.Begin()
+	if err != nil {
+		return err
+	}
+
+	original, err := server.GetDatabaseState(config)
+	if err != nil {
+		return err
+	}
+
+	errs := up.DoMigration(tx, version, config)
+	if len(errs) > 0 {
+		return errs[0]
+	}
+
+	post, err := server.GetDatabaseState(config)
+	if err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+
+	down.GetTableDiff(original.Tables, post.Tables, version, &builder)
+	down.GetProcDiff(original.Procs, &builder)
+
+	//TODO pretty print differences
+
+	err = tx.Rollback()
+	return err
 }

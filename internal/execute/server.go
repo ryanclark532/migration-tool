@@ -6,9 +6,9 @@ import (
 )
 
 type Server interface {
-	Connect() (*sql.DB, error)
+	Connect() (common.CommonDB, error)
 	GetDatabaseState(config common.Config) (*common.Database, error)
 	GetLatestVersion() (int, error)
-	Close() error
 	Setup(migrationTable string) error
+	Begin() (*sql.Tx, error)
 }

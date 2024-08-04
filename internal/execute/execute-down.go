@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func ExecuteDown(server Server, config common.Config, dryRun bool) error {
+func Down(server Server, config common.Config, dryRun bool) error {
 	conn, err := server.Connect()
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func ExecuteDown(server Server, config common.Config, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	tx, err := conn.Begin()
+	tx, err := server.Begin()
 	if err != nil {
 		return err
 	}
@@ -54,9 +54,5 @@ func ExecuteDown(server Server, config common.Config, dryRun bool) error {
 		}
 	}
 
-	err = server.Close()
-	if err != nil {
-		return err
-	}
 	return nil
 }

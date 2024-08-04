@@ -15,7 +15,7 @@ type SqlServer struct {
 	User     string
 	Password string
 	Database string
-	Conn     *sql.DB
+	Conn     common.CommonDB
 }
 
 func (s SqlServer) Setup(migrationTable string) error {
@@ -23,7 +23,7 @@ func (s SqlServer) Setup(migrationTable string) error {
 	panic("implement me")
 }
 
-func (s SqlServer) Connect() (*sql.DB, error) {
+func (s SqlServer) Connect() (common.CommonDB, error) {
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s",
 		s.Server, s.User, s.Password, s.Port, s.Database)
 
@@ -36,11 +36,16 @@ func (s SqlServer) Connect() (*sql.DB, error) {
 		return nil, err
 	}
 	s.Conn = db
-	return db, nil
+	return s.Conn, nil
 }
 
-func (s SqlServer) Close() error {
-	return s.Conn.Close()
+func (s SqlServer) Begin() (*sql.Tx, error) {
+	if db, ok := (s.Conn).(common.TxStarter); ok {
+		tx, err := db.Begin()
+		s.Conn = tx
+		return tx, err
+	}
+	return nil, fmt.Errorf("connection does not support transactions")
 }
 
 func (s SqlServer) getServerObjects() ([]common.SchemaObject, error) {

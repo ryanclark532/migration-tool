@@ -98,7 +98,7 @@ func TestMigrationUp(t *testing.T) {
 		}
 	}
 
-	err = execute.ExecuteUp(server, config, false)
+	err = execute.Up(server, config, false)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -121,7 +121,7 @@ func TestMigrationDown(t *testing.T) {
 	server := &sqlite.SqLiteServer{
 		FilePath: config.FilePath,
 	}
-	err := execute.ExecuteDown(server, config, false)
+	err := execute.Down(server, config, false)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

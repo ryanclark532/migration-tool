@@ -13,7 +13,7 @@ TEST_DB_SRC=./cmd/main/server.db
 all: build
 
 build:
-	go build -o ./bin/$(BINARY_NAME) $(SRC)
+	go build -o ./bin/$(BINARY_NAME).exe $(SRC)
 
 test: 
 	go test $(TEST_SRC) && rm $(TEST_DB_SRC)

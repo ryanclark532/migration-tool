@@ -1,42 +1,93 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-	"ryanclark532/migration-tool/internal/common"
-	"ryanclark532/migration-tool/internal/execute"
-	"ryanclark532/migration-tool/internal/sqlite"
-	"ryanclark532/migration-tool/internal/sqlserver"
 )
+
+var help = "No command or an invalid command specified.\nAvailable commands are: 'up', 'down, 'check'. Run with valid command and -h to see available flags"
 
 func main() {
 
+	var dryRun bool
+
+	fsUp := flag.NewFlagSet("up", flag.ExitOnError)
+	fsUp.BoolVar(&dryRun, "dry-run", false, "Execute in dry run mode, changes will be validated but no actions will be commited to the database")
+
+	var versionNo int
+
+	fsDown := flag.NewFlagSet("down", flag.ExitOnError)
+	fsDown.BoolVar(&dryRun, "dry-run", false, "Execute in dry run mode, changes will be validated but no actions will be commited to the database")
+	fsDown.IntVar(&versionNo, "version", 0, "Version number to revert to. This will execute downwards migrations in order to get to the desired version")
+
+	if len(os.Args) < 2 {
+		_, err := fmt.Fprintln(os.Stderr, help)
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	switch os.Args[1] {
+	case "up":
+		if err := fsUp.Parse(os.Args[2:]); err == nil {
+			fmt.Println("edit", dryRun)
+		}
+	case "down":
+		if err := fsDown.Parse(os.Args[2:]); err == nil {
+			fmt.Println("edit", dryRun)
+		}
+	default:
+		_, err := fmt.Fprintln(os.Stderr, help)
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+}
+
+/*
+func main() {
+
+	help := slices.ContainsFunc(os.Args, func(s string) bool {
+		return s == "-h" || s == "-help"
+	})
+
+	_ = slices.ContainsFunc(os.Args, func(s string) bool {
+		return s == "-dry-run" || s == "-dry-run=true"
+	})
+
+	if help {
+		fmt.Print(helpText)
+		return
+	}
+
+	operation := os.Args[1]
+
+	if operation != "up" && operation != "down" && operation != "check" {
+		panic("Invalid operation")
+	}
 	c := loadJson()
-
-	operation := flag.String("operation", "up", "Migration Operation, available operations: up, down")
-
-	dryRun := flag.Bool("dry-run", false, "Run in dry-run mode")
-
-	flag.Parse()
 
 	if c == nil {
 		panic("Unable to load config, please provide a json file, config in an .env file, or cli flags, use -h for more information")
 	}
 
-	server := getServer(c)
+	/*
+		server := getServer(c)
 
-	switch *operation {
-	case "up":
-		err := execute.ExecuteUp(server, *c, *dryRun)
-		panic(err)
-	case "down":
-		err := execute.ExecuteDown(server, *c, *dryRun)
-		panic(err)
-	default:
-		panic(fmt.Sprintf("Unsupported operation: %s", *operation))
-	}
+		switch *operation {
+		case "up":
+			err := execute.ExecuteUp(server, *c, *dryRun)
+			panic(err)
+		case "down":
+			err := execute.ExecuteDown(server, *c, *dryRun)
+			panic(err)
+		default:
+			panic(fmt.Sprintf("Unsupported operation: %s", *operation))
+		}
+
 
 }
 
