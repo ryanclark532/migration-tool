@@ -2,6 +2,7 @@ package sqlserver
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"ryanclark532/migration-tool/internal/common"
 	"strings"
@@ -10,20 +11,44 @@ import (
 )
 
 type SqlServer struct {
+	Conn     *sql.DB
 	Server   string
-	Port     int
 	User     string
 	Password string
 	Database string
-	Conn     common.CommonDB
+	Port     int
 }
 
-func (s SqlServer) Setup(migrationTable string) error {
-	//TODO implement me
-	panic("implement me")
+func (s *SqlServer) Setup(migrationTable string) error {
+	var exists string
+	sqlBatch := `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '?'`
+	err := s.Conn.QueryRow(sqlBatch, migrationTable).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+		sqlBatch := fmt.Sprintf(`CREATE TABLE %s(
+			EnterDateTime DATETIME2,
+			Version INTEGER, 
+			FileName VARCHAR(256)
+		);`, migrationTable)
+		_, err = s.Conn.Exec(sqlBatch)
+		if err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
 }
 
-func (s SqlServer) Connect() (common.CommonDB, error) {
+func (s *SqlServer) Begin() (*sql.Tx, error) {
+	return s.Conn.Begin()
+}
+
+func (s *SqlServer) Close() error {
+	return s.Conn.Close()
+}
+
+func (s *SqlServer) Connect() (*sql.DB, error) {
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s",
 		s.Server, s.User, s.Password, s.Port, s.Database)
 
@@ -39,16 +64,7 @@ func (s SqlServer) Connect() (common.CommonDB, error) {
 	return s.Conn, nil
 }
 
-func (s SqlServer) Begin() (*sql.Tx, error) {
-	if db, ok := (s.Conn).(common.TxStarter); ok {
-		tx, err := db.Begin()
-		s.Conn = tx
-		return tx, err
-	}
-	return nil, fmt.Errorf("connection does not support transactions")
-}
-
-func (s SqlServer) getServerObjects() ([]common.SchemaObject, error) {
+func (s *SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 	sqlContent := `
 	SELECT 
     schema_name(schema_id) AS schema_name,
@@ -79,7 +95,7 @@ func (s SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 	return schemaObjects, nil
 }
 
-func (s SqlServer) getTableColumns(tableName string) (map[string]common.Column, error) {
+func (s *SqlServer) getTableColumns(tableName string) (map[string]common.Column, error) {
 	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE
 	FROM INFORMATION_SCHEMA.COLUMNS
 	WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '%s';
@@ -101,7 +117,7 @@ func (s SqlServer) getTableColumns(tableName string) (map[string]common.Column, 
 	return columns, err
 }
 
-func (s SqlServer) getTableContrains(tablename string) (map[string]common.Constraint, error) {
+func (s *SqlServer) getTableContrains(tablename string) (map[string]common.Constraint, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     tc.constraint_name AS constraint_name,
@@ -128,7 +144,7 @@ func (s SqlServer) getTableContrains(tablename string) (map[string]common.Constr
 	return constraints, err
 }
 
-func (s SqlServer) getTableIndexes(tableName string) (map[string]common.Index, error) {
+func (s *SqlServer) getTableIndexes(tableName string) (map[string]common.Index, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     idx.name AS index_name,
@@ -161,7 +177,7 @@ func (s SqlServer) getTableIndexes(tableName string) (map[string]common.Index, e
 	return indexes, err
 }
 
-func (s SqlServer) getProcedureDetails(procName string) (common.Procedure, error) {
+func (s *SqlServer) getProcedureDetails(procName string) (common.Procedure, error) {
 	sql := fmt.Sprintf(`
 	SELECT 
     definition
@@ -183,7 +199,7 @@ func (s SqlServer) getProcedureDetails(procName string) (common.Procedure, error
 	return common.Procedure{Definition: strings.TrimSpace(description)}, nil
 }
 
-func (s SqlServer) GetDatabaseState(config common.Config) (*common.Database, error) {
+func (s *SqlServer) GetDatabaseState(config common.Config) (*common.Database, error) {
 	objects, err := s.getServerObjects()
 	if err != nil {
 		panic(err)
@@ -223,14 +239,14 @@ func (s SqlServer) GetDatabaseState(config common.Config) (*common.Database, err
 			}
 			procedures[object.Name] = proc
 		}
-
 	}
 	return &common.Database{
 		Tables: tables,
 		Procs:  procedures,
 	}, nil
 }
-func (s SqlServer) GetLatestVersion() (int, error) {
+
+func (s *SqlServer) GetLatestVersion() (int, error) {
 	sql := `SELECT MAX(Version) FROM Migrations`
 
 	rows := s.Conn.QueryRow(sql)

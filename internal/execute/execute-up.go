@@ -1,6 +1,7 @@
 package execute
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
@@ -32,7 +33,7 @@ func Up(server Server, config common.Config, dryRun bool) error {
 	}
 }
 
-func exec(server Server, config common.Config, version int, conn common.CommonDB) error {
+func exec(server Server, config common.Config, version int, conn *sql.DB) error {
 	original, err := server.GetDatabaseState(config)
 	if err != nil {
 		return err
@@ -69,7 +70,7 @@ func execDry(server Server, config common.Config, version int) error {
 		return err
 	}
 
-	errs := up.DoMigration(tx, version, config)
+	errs := up.DoDryMigration(tx, version, config)
 	if len(errs) > 0 {
 		return errs[0]
 	}

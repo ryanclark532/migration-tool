@@ -8,6 +8,7 @@ type Config struct {
 	User               string `json:"user"`
 	Password           string `json:"password"`
 	Database           string `json:"database"`
+	Server             string `json:"server"`
 	OutputDir          string `json:"output_dir"`
 	InputDir           string `json:"input_dir"`
 	MigrationTableName string `json:"migration_table_name"`

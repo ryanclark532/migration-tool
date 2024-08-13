@@ -4,17 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"ryanclark532/migration-tool/internal/common"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type SqLiteServer struct {
 	FilePath string
-	Conn     common.CommonDB
+	Conn     *sql.DB
 }
 
-func (s *SqLiteServer) Connect() (common.CommonDB, error) {
+func (s *SqLiteServer) Connect() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", s.FilePath)
 	if err != nil {
 		return nil, err
@@ -28,12 +29,11 @@ func (s *SqLiteServer) Connect() (common.CommonDB, error) {
 }
 
 func (s *SqLiteServer) Begin() (*sql.Tx, error) {
-	if db, ok := (s.Conn).(common.TxStarter); ok {
-		tx, err := db.Begin()
-		s.Conn = tx
-		return tx, err
-	}
-	return nil, fmt.Errorf("connection does not support transactions")
+	return s.Conn.Begin()
+}
+
+func (s *SqLiteServer) Close() error {
+	return s.Conn.Close()
 }
 
 func (s *SqLiteServer) Setup(migrationTable string) error {
