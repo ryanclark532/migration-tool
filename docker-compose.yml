@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: migration-tool-sqlserver-test
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Str0ngP@ssword"
+      MSSQL_PID: "Evaluation"
+    ports:
+      - "1433:1433"
+    networks:
+      - mssql-network
+
+networks:
+  mssql-network:
+    driver: bridge
