@@ -43,6 +43,9 @@ func (s *SqlServer) Setup(migrationTable string) error {
 func (s *SqlServer) Begin() (*sql.Tx, error) {
 	return s.Conn.Begin()
 }
+func (s *SqlServer) GetDB() *sql.DB {
+	return s.Conn
+}
 
 func (s *SqlServer) Close() error {
 	return s.Conn.Close()

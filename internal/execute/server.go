@@ -12,4 +12,5 @@ type Server interface {
 	Setup(migrationTable string) error
 	Begin() (*sql.Tx, error)
 	Close() error
+	GetDB() *sql.DB
 }

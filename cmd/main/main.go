@@ -25,6 +25,8 @@ func main() {
 	fsDown.BoolVar(&dryRun, "dry-run", false, "Execute in dry run mode, changes will be validated but no actions will be commited to the database")
 	fsDown.IntVar(&versionNo, "version", 0, "Version number to revert to. This will execute downwards migrations in order to get to the desired version")
 
+	//TODO Add commands 'check' - gets unrun migrations, 'generate' reads unrun migrations and generates a down script
+
 	if len(os.Args) < 2 {
 		_, err := fmt.Fprintln(os.Stderr, help)
 		if err != nil {
@@ -41,12 +43,22 @@ func main() {
 
 	server := getServer(c)
 
+	_, err := server.Connect()
+	if err != nil {
+		panic(err)
+	}
+
+	err = server.Setup(c.MigrationTableName)
+	if err != nil {
+		panic(err)
+	}
+
 	switch os.Args[1] {
 	case "up":
 		if err := fsUp.Parse(os.Args[2:]); err != nil {
 			panic(err)
 		}
-		err := execute.ExecuteUp(server, *c, dryRun)
+		err := execute.Up(server, *c, dryRun)
 		panic(err)
 
 	case "down":
@@ -54,7 +66,7 @@ func main() {
 			panic(err)
 		}
 
-		err := execute.ExecuteDown(server, *c, dryRun)
+		err := execute.Down(server, *c, dryRun)
 		panic(err)
 	case "help":
 		fmt.Println("Help me")

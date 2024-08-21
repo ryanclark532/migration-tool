@@ -36,6 +36,9 @@ func (s *SqLiteServer) Close() error {
 	return s.Conn.Close()
 }
 
+func (s *SqLiteServer) GetDB() *sql.DB {
+	return s.Conn
+}
 func (s *SqLiteServer) Setup(migrationTable string) error {
 	var exists string
 	sqlBatch := `SELECT name FROM sqlite_master WHERE type='table' AND name=?;`

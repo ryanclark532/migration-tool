@@ -75,6 +75,7 @@ func setup() (*SqLiteServer, error) {
 	server := &SqLiteServer{
 		FilePath: Config.FilePath,
 	}
+
 	return server, nil
 }
 
@@ -93,6 +94,11 @@ func TestMigrationUpSqlite(t *testing.T) {
 	}
 
 	conn, err := server.Connect()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = server.Setup(Config.MigrationTableName)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

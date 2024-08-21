@@ -11,20 +11,13 @@ import (
 )
 
 func Up(server Server, config common.Config, dryRun bool) error {
-	conn, err := server.Connect()
-	if err != nil {
-		return err
-	}
-
-	err = server.Setup(config.MigrationTableName)
-	if err != nil {
-		return err
-	}
 
 	version, err := server.GetLatestVersion()
 	if err != nil {
 		return err
 	}
+
+	conn := server.GetDB()
 
 	if !dryRun {
 		return exec(server, config, version, conn)
@@ -53,6 +46,11 @@ func exec(server Server, config common.Config, version int, conn *sql.DB) error 
 
 	down.GetTableDiff(original.Tables, post.Tables, version, &builder)
 	down.GetProcDiff(original.Procs, &builder)
+
+	//TODO Unhappy with the current batching of up and down.
+	//refactor to generate a seperate down script for each up script.
+	//throw out version system and use random generated numbers
+	// e.g mgt rollback 123456 will execute down for 123456
 
 	if builder.Len() != 0 {
 		return os.WriteFile(fmt.Sprintf("%s/down/%d.sql", config.OutputDir, version), []byte(builder.String()), os.ModeAppend)
