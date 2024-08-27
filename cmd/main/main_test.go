@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
+	"ryanclark532/migration-tool/internal/down"
 	"ryanclark532/migration-tool/internal/execute"
 	"ryanclark532/migration-tool/internal/sqlite"
 	"strings"
@@ -121,7 +122,7 @@ func TestMigrationDown(t *testing.T) {
 	server := &sqlite.SqLiteServer{
 		FilePath: config.FilePath,
 	}
-	err := execute.Down(server, config, false)
+	err := down.Down(server, config, false)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

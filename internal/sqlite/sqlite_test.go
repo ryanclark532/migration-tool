@@ -5,7 +5,9 @@ import (
 	"io/fs"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
-	"ryanclark532/migration-tool/internal/execute"
+	"ryanclark532/migration-tool/internal/down"
+	"ryanclark532/migration-tool/internal/up"
+	"ryanclark532/migration-tool/internal/utils"
 	"strings"
 	"testing"
 )
@@ -110,17 +112,24 @@ func TestMigrationUpSqlite(t *testing.T) {
 		}
 	}
 
-	err = execute.Up(server, Config, false)
-	if err != nil {
-		t.Fatal(err.Error())
+	errs := up.DoMigration(server, Config)
+	if len(errs) > 0 {
+		t.Fatal(errs[0].Error())
 	}
-
 	expected := []string{"ALTER TABLE Users ADD COLUMN Name VARCHAR(256);", "ALTER TABLE Employees DROP COLUMN Email;", "ALTER TABLE Employees DROP COLUMN Department;", "DROP TABLE Payments;"}
-	c, err := os.ReadFile(Config.OutputDir + "/down/1.sql")
+	files, err := utils.CrawlDir(Config.OutputDir)
 	if err != nil {
-		t.Fatal(err.Error())
+		panic(err)
 	}
-	downContent := strings.TrimSpace(string(c))
+	var builder strings.Builder
+	for _, file := range files {
+		contents, err := os.ReadFile(fmt.Sprintf("%s/%s", Config.OutputDir, file))
+		if err != nil {
+			panic(err)
+		}
+		builder.WriteString(string(contents))
+	}
+	downContent := strings.TrimSpace(builder.String())
 
 	for _, exp := range expected {
 		if !strings.Contains(downContent, exp) {
@@ -140,7 +149,7 @@ func TestMigrationDownSqlite(t *testing.T) {
 		panic(err)
 	}
 
-	err = execute.Down(server, Config, false)
+	err = down.Down(server, Config, false)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

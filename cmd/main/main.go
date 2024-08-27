@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
-	"ryanclark532/migration-tool/internal/execute"
+	"ryanclark532/migration-tool/internal/down"
 	"ryanclark532/migration-tool/internal/sqlite"
 	"ryanclark532/migration-tool/internal/sqlserver"
+	"ryanclark532/migration-tool/internal/up"
 )
 
 var help = "No command or an invalid command specified.\nAvailable commands are: 'up', 'down, 'check'. Run with valid command and -h to see available flags"
@@ -58,15 +59,24 @@ func main() {
 		if err := fsUp.Parse(os.Args[2:]); err != nil {
 			panic(err)
 		}
-		err := execute.Up(server, *c, dryRun)
-		panic(err)
+		if dryRun {
+			errs := up.DoMigration(server, *c)
+			if len(errs) > 0 {
+				panic(errs[0])
+			}
+		} else {
 
+			errs := up.DoDryMigration(server, *c)
+			if len(errs) > 0 {
+				panic(errs[0])
+			}
+		}
 	case "down":
 		if err := fsDown.Parse(os.Args[2:]); err != nil {
 			panic(err)
 		}
 
-		err := execute.Down(server, *c, dryRun)
+		err := down.Down(server, *c, dryRun)
 		panic(err)
 	case "help":
 		fmt.Println("Help me")
@@ -79,7 +89,7 @@ func main() {
 	}
 }
 
-func getServer(config *common.Config) execute.Server {
+func getServer(config *common.Config) common.Server {
 	switch config.DbType {
 	case "Sqlite":
 		return &sqlite.SqLiteServer{
