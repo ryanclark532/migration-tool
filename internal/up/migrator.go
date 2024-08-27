@@ -1,7 +1,6 @@
 package up
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
@@ -12,7 +11,7 @@ import (
 )
 
 func DoMigration(server common.Server, config common.Config) []error {
-	completedFiles, err := CompletedFiles(server.GetDB())
+	completedFiles, err := common.CompletedFiles(server.GetDB())
 	if err != nil {
 		errors := []error{err}
 		return errors
@@ -99,7 +98,7 @@ func DoMigration(server common.Server, config common.Config) []error {
 }
 
 func DoDryMigration(server common.Server, config common.Config) []error {
-	completedfiles, err := CompletedFiles(server.GetDB())
+	completedfiles, err := common.CompletedFiles(server.GetDB())
 	if err != nil {
 		errors := []error{err}
 		return errors
@@ -142,28 +141,4 @@ func DoDryMigration(server common.Server, config common.Config) []error {
 	}
 
 	return errors
-}
-
-type commonDb interface {
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-}
-
-func CompletedFiles(conn commonDb) (map[string]bool, error) {
-	sqlBatch := ("SELECT FileName From Migrations")
-	fileNames := make(map[string]bool)
-	rows, err := conn.Query(sqlBatch)
-	if err != nil {
-		return nil, err
-	}
-
-	for rows.Next() {
-		var fileName string
-		err = rows.Scan(&fileName)
-		if err != nil {
-			return fileNames, err
-		}
-		fileNames[fileName] = true
-	}
-
-	return fileNames, nil
 }

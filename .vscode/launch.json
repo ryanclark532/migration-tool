@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Sqlite",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/internal/sqlite",
+      "args": [],
+      "env": {},
+      "buildFlags": "",
+      "showLog": true
+    },
+    {
+      "name": "Debug SQL Server",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/internal/sqlserver",
+      "args": [],
+      "env": {},
+      "buildFlags": "",
+      "showLog": true
+    }
+  ]
+}

@@ -149,9 +149,9 @@ func TestMigrationDownSqlite(t *testing.T) {
 		panic(err)
 	}
 
-	err = down.Down(server, Config, false)
-	if err != nil {
-		t.Fatal(err.Error())
+	errs := down.Down(server, Config, false, "")
+	if len(errs) > 0 {
+		t.Fatal(errs[0].Error())
 	}
 
 	_, err = server.Connect()

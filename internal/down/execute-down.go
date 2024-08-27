@@ -2,7 +2,6 @@ package down
 
 import (
 	"ryanclark532/migration-tool/internal/common"
-	"ryanclark532/migration-tool/internal/up"
 )
 
 func Down(server common.Server, config common.Config, dryRun bool, fileName string) []error {
@@ -18,9 +17,9 @@ func Down(server common.Server, config common.Config, dryRun bool, fileName stri
 		2. get all up scripts that have been run since then
 		3. for each run the down script and delete record from DB
 	*/
-	completedFiles, err := up.CompletedFiles(server.GetDB())
+	_, err := common.CompletedFiles(server.GetDB())
 	if err != nil {
 		return []error{err}
 	}
-
+	return nil
 }
