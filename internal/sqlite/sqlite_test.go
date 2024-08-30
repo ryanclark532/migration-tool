@@ -23,9 +23,9 @@ var Commands = []string{
 }
 
 var Config = common.Config{
-	FilePath:           "server.db",
-	InputDir:           "./testing",
-	OutputDir:          "./output",
+	FilePath:           "../../server.db",
+	InputDir:           "../../testing",
+	OutputDir:          "../../output",
 	MigrationTableName: "Migrations",
 	User:               "sa",
 	Password:           "Str0ngP@ssword",
@@ -49,6 +49,7 @@ var PostState = &common.Database{Tables: map[string]common.Table{
 }}
 
 func setup() (*SqLiteServer, error) {
+	fmt.Println(os.Getwd())
 	if _, err := os.Stat(Config.FilePath); err == nil {
 		if err := os.Remove(Config.FilePath); err != nil {
 			panic(err)
@@ -86,7 +87,6 @@ func destroy() {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 func TestMigrationUpSqlite(t *testing.T) {
@@ -149,9 +149,9 @@ func TestMigrationDownSqlite(t *testing.T) {
 		panic(err)
 	}
 
-	errs := down.Down(server, Config, false, "")
-	if len(errs) > 0 {
-		t.Fatal(errs[0].Error())
+	err = down.Down(server, Config, false, "thing1.sql.down.sql")
+	if err != nil {
+		t.Fatal(err.Error())
 	}
 
 	_, err = server.Connect()

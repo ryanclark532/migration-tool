@@ -1,10 +1,12 @@
 package down
 
 import (
+	"fmt"
+	"os"
 	"ryanclark532/migration-tool/internal/common"
 )
 
-func Down(server common.Server, config common.Config, dryRun bool, fileName string) []error {
+func Down(server common.Server, config common.Config, dryRun bool, fileName string) error {
 	//TODO Rethink "down" execution.
 	/*
 		Mode One
@@ -17,9 +19,32 @@ func Down(server common.Server, config common.Config, dryRun bool, fileName stri
 		2. get all up scripts that have been run since then
 		3. for each run the down script and delete record from DB
 	*/
-	_, err := common.CompletedFiles(server.GetDB())
+
+	files, err := common.CompletedFiles(server.GetDB())
 	if err != nil {
-		return []error{err}
+		return err
 	}
-	return nil
+
+	ex := files[fileName]
+	if !ex {
+		return fmt.Errorf("Down File doesnt exist")
+	}
+	contents, err := os.ReadFile(fmt.Sprintf("%s/%s", config.OutputDir, fileName))
+	if err != nil {
+		return err
+	}
+
+	tx, err := server.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Query(string(contents))
+	if err != nil {
+		return err
+	}
+
+	_, err = server.GetDB().Query(string(contents))
+
+	return err
 }
