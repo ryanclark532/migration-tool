@@ -23,9 +23,9 @@ var Commands = []string{
 }
 
 var Config = common.Config{
-	FilePath:           "../../server.db",
-	InputDir:           "../../testing",
-	OutputDir:          "../../output",
+	FilePath:           "server.db",
+	InputDir:           "./testing",
+	OutputDir:          "./output",
 	MigrationTableName: "Migrations",
 	User:               "sa",
 	Password:           "Str0ngP@ssword",
@@ -150,6 +150,16 @@ func TestMigrationDownSqlite(t *testing.T) {
 	}
 
 	err = down.Down(server, Config, false, "thing1.sql.down.sql")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = down.Down(server, Config, false, "thing2.sql.down.sql")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = down.Down(server, Config, false, "thing3.sql.down.sql")
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -75,11 +75,11 @@ func DoMigration(server common.Server, config common.Config) []error {
 
 		var builder strings.Builder
 
-		down.GetTableDiff(original.Tables, post.Tables, 1, &builder)
-		down.GetProcDiff(original.Procs, &builder)
+		down.GetTableDiff(original.Tables, post.Tables, &builder)
+		down.GetProcDiff(original.Procs, post.Procs, &builder)
 
 		if builder.Len() != 0 {
-			err = os.WriteFile(fmt.Sprintf("%s/down/%s.down.sql", config.OutputDir, file), []byte(builder.String()), os.ModeAppend)
+			err = os.WriteFile(fmt.Sprintf("%s/%s.down.sql", config.OutputDir, file), []byte(builder.String()), os.ModeAppend)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			}

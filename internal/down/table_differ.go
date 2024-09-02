@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func GetTableDiff(original map[string]common.Table, post map[string]common.Table, version int,  builder *strings.Builder)  {
+func GetTableDiff(original map[string]common.Table, post map[string]common.Table, builder *strings.Builder) {
 	processedTables := make(map[string]bool)
 	processedColumns := make(map[string]bool)
 

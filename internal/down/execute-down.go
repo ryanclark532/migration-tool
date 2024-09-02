@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"ryanclark532/migration-tool/internal/common"
+	"strings"
 )
 
 func Down(server common.Server, config common.Config, dryRun bool, fileName string) error {
@@ -25,7 +26,7 @@ func Down(server common.Server, config common.Config, dryRun bool, fileName stri
 		return err
 	}
 
-	ex := files[fileName]
+	ex := files[strings.Split(fileName, ".down")[0]]
 	if !ex {
 		return fmt.Errorf("Down File doesnt exist")
 	}
@@ -39,12 +40,14 @@ func Down(server common.Server, config common.Config, dryRun bool, fileName stri
 		return err
 	}
 
-	_, err = tx.Query(string(contents))
+	_, err = tx.Exec(string(contents))
 	if err != nil {
 		return err
 	}
 
-	_, err = server.GetDB().Query(string(contents))
-
-	return err
+	if dryRun {
+		return tx.Rollback()
+	} else {
+		return tx.Commit()
+	}
 }

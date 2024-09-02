@@ -22,6 +22,13 @@ var Commands = []string{
 			Email VARCHAR(256),
 			Name VARCHAR(256)
 		);`,
+	`
+		CREATE OR ALTER PROCEDURE Test2
+			AS
+		BEGIN
+    		SELECT * FROM Employees
+		END;
+	`,
 }
 
 var Config = common.Config{
@@ -107,6 +114,11 @@ func TestMigrationUpSqlServer(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
+	err = server.Setup(Config.MigrationTableName)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	for _, cmd := range Commands {
 		_, err = conn.Exec(cmd)
 		if err != nil {
@@ -150,7 +162,22 @@ func TestMigrationDownSqlServer(t *testing.T) {
 		Server:   Config.Server,
 		Port:     Config.Port,
 	}
-	err := down.Down(server, Config, false)
+	_, err := server.Connect()
+	if err != nil {
+		panic(err)
+	}
+
+	err = down.Down(server, Config, false, "thing1.sql.down.sql")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = down.Down(server, Config, false, "thing2.sql.down.sql")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = down.Down(server, Config, false, "thing3.sql.down.sql")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
