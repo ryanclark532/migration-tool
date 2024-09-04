@@ -36,6 +36,11 @@ func DoMigration(server common.Server, config common.Config) []error {
 			continue
 		}
 
+		original, err := server.GetDatabaseState(config)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+		}
+
 		tx, err := server.Begin()
 		if err != nil {
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
@@ -43,31 +48,19 @@ func DoMigration(server common.Server, config common.Config) []error {
 
 		_, err = tx.Exec(string(contents))
 		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				panic(err)
+			}
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			continue
 		}
 
-		err = tx.Rollback()
+		err = tx.Commit()
 		if err != nil {
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			continue
 		}
-		verifiedFiles[file] = string(contents)
-	}
-
-	//Pass 2 execute migration and generate down
-	for file, contents := range verifiedFiles {
-		original, err := server.GetDatabaseState(config)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
-		}
-
-		conn := server.GetDB()
-		_, err = conn.Exec(contents)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
-		}
-
 		post, err := server.GetDatabaseState(config)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
@@ -84,7 +77,8 @@ func DoMigration(server common.Server, config common.Config) []error {
 				errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			}
 
-			sqlBatch := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Version, FileName) VALUES ('%s', %d, '%s')", time.Now(), 1, file)
+			sqlBatch := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Version, FileName) VALUES ('%s', %d, '%s')", time.Now().Format(time.RFC3339), 1, file)
+			conn := server.GetDB()
 			_, err = conn.Exec(sqlBatch)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
@@ -93,8 +87,10 @@ func DoMigration(server common.Server, config common.Config) []error {
 
 		}
 
+		verifiedFiles[file] = string(contents)
 	}
-	return nil
+
+	return errors
 }
 
 func DoDryMigration(server common.Server, config common.Config) []error {

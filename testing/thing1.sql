@@ -1,5 +1,5 @@
 ALTER TABLE Employees
-ADD COLUMN Email VARCHAR(256);			
+ADD Email VARCHAR(256);
 
 ALTER TABLE Employees
-ADD COLUMN Department VARCHAR(256);			
+ADD Department VARCHAR(256);

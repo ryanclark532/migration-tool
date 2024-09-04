@@ -1,9 +1,6 @@
 package common
 
-
-
 type SchemaObject struct {
-	Name       string
 	ObjectName string
 	ObjectType string
 }

@@ -70,13 +70,12 @@ func (s *SqlServer) Connect() (*sql.DB, error) {
 func (s *SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 	sqlContent := `
 	SELECT 
-    schema_name(schema_id) AS schema_name,
     name AS object_name,
     type_desc AS object_type
 	FROM 
  	   sys.objects
 	WHERE 
- 	   schema_id = SCHEMA_ID('dbo');
+ 	   schema_id = SCHEMA_ID('dbo') AND is_ms_shipped = 0;
 	`
 	rows, err := s.Conn.Query(sqlContent)
 	if err != nil {
@@ -88,7 +87,7 @@ func (s *SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 
 	for rows.Next() {
 		var t common.SchemaObject
-		_ = rows.Scan(&t.Name, &t.ObjectName, &t.ObjectType)
+		_ = rows.Scan(&t.ObjectName, &t.ObjectType)
 
 		if strings.HasPrefix(t.ObjectName, "spt_") || t.ObjectName == "MSreplication_options" || t.ObjectName == "Migrations" {
 			continue
@@ -99,7 +98,7 @@ func (s *SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 }
 
 func (s *SqlServer) getTableColumns(tableName string) (map[string]common.Column, error) {
-	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE
+	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE, MAX_LENGTH
 	FROM INFORMATION_SCHEMA.COLUMNS
 	WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '%s';
 	`, tableName)
@@ -113,7 +112,14 @@ func (s *SqlServer) getTableColumns(tableName string) (map[string]common.Column,
 	for rows.Next() {
 		var col common.Column
 		var colName string
-		_ = rows.Scan(&colName, &col.Type)
+		var maxLength string
+		_ = rows.Scan(&colName, &col.Type, &maxLength)
+
+		if col.Type == "varchar" || col.Type == "nvarchar" {
+			col.Type = strings.ToUpper(fmt.Sprintf("%s(%s)", col.Type, maxLength))
+		} else {
+			col.Type = strings.ToUpper(col.Type)
+		}
 
 		columns[colName] = col
 	}
@@ -233,14 +239,14 @@ func (s *SqlServer) GetDatabaseState(config common.Config) (*common.Database, er
 				Contraints: constraints,
 				Indexes:    indexes,
 			}
-			tables[object.Name] = t
+			tables[object.ObjectName] = t
 
 		case "SQL_STORED_PROCEDURE":
 			proc, err := s.getProcedureDetails(object.ObjectName)
 			if err != nil {
 				return nil, err
 			}
-			procedures[object.Name] = proc
+			procedures[object.ObjectName] = proc
 		}
 	}
 	return &common.Database{
