@@ -98,7 +98,7 @@ func (s *SqlServer) getServerObjects() ([]common.SchemaObject, error) {
 }
 
 func (s *SqlServer) getTableColumns(tableName string) (map[string]common.Column, error) {
-	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE, MAX_LENGTH
+	sqlContent := fmt.Sprintf(`SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
 	FROM INFORMATION_SCHEMA.COLUMNS
 	WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = '%s';
 	`, tableName)
@@ -246,6 +246,7 @@ func (s *SqlServer) GetDatabaseState(config common.Config) (*common.Database, er
 			if err != nil {
 				return nil, err
 			}
+
 			procedures[object.ObjectName] = proc
 		}
 	}

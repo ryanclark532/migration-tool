@@ -22,11 +22,11 @@ func DropColumn(builder *strings.Builder, tableName string, columnName string) {
 }
 
 func AlterColumn(builder *strings.Builder, tableName string, column Column, colName string) {
-	builder.WriteString(fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s %s;\n", tableName, colName, column.Type))
+	builder.WriteString(fmt.Sprintf("ALTER TABLE %s ALTER %s %s;\n", tableName, colName, column.Type))
 }
 
 func AddColumn(builder *strings.Builder, tableName string, column Column, colName string) {
-	builder.WriteString(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s;\n", tableName, colName, column.Type))
+	builder.WriteString(fmt.Sprintf("ALTER TABLE %s ADD %s %s;\n", tableName, colName, column.Type))
 }
 
 func DropProc(builder *strings.Builder, procName string) {

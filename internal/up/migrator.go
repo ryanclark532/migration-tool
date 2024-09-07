@@ -17,11 +17,16 @@ func DoMigration(server common.Server, config common.Config) []error {
 		return errors
 	}
 
-	verifiedFiles := make(map[string]string)
-
 	var errors []error
 
 	files, err := utils.CrawlDir(config.InputDir)
+	if err != nil {
+		errors := []error{err}
+		return errors
+	}
+
+	processedProcs := make(map[string]bool)
+
 	//Pass 1, run all migrations in a transaction to validate them
 	for _, file := range files {
 		_, ex := completedFiles[file]
@@ -39,19 +44,17 @@ func DoMigration(server common.Server, config common.Config) []error {
 		original, err := server.GetDatabaseState(config)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			continue
 		}
 
 		tx, err := server.Begin()
 		if err != nil {
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			continue
 		}
 
 		_, err = tx.Exec(string(contents))
 		if err != nil {
-			err = tx.Rollback()
-			if err != nil {
-				panic(err)
-			}
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 			continue
 		}
@@ -64,12 +67,14 @@ func DoMigration(server common.Server, config common.Config) []error {
 		post, err := server.GetDatabaseState(config)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			continue
 		}
 
 		var builder strings.Builder
+		var procBuilder strings.Builder
 
 		down.GetTableDiff(original.Tables, post.Tables, &builder)
-		down.GetProcDiff(original.Procs, post.Procs, &builder)
+		down.GetProcDiff(original.Procs, post.Procs, &procBuilder, processedProcs)
 
 		if builder.Len() != 0 {
 			err = os.WriteFile(fmt.Sprintf("%s/%s.down.sql", config.OutputDir, file), []byte(builder.String()), os.ModeAppend)
@@ -84,10 +89,20 @@ func DoMigration(server common.Server, config common.Config) []error {
 				errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
 				continue
 			}
+		} else if procBuilder.Len() != 0 {
+			err = os.WriteFile(fmt.Sprintf("%s/%s.down.sql", config.OutputDir, file), []byte(procBuilder.String()), os.ModeAppend)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+			}
 
+			sqlBatch := fmt.Sprintf("INSERT INTO Migrations(EnterDateTime, Version, FileName) VALUES ('%s', %d, '%s')", time.Now().Format(time.RFC3339), 1, file)
+			conn := server.GetDB()
+			_, err = conn.Exec(sqlBatch)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("error processing %s: %s", file, err.Error()))
+				continue
+			}
 		}
-
-		verifiedFiles[file] = string(contents)
 	}
 
 	return errors

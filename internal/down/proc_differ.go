@@ -6,17 +6,19 @@ import (
 	"strings"
 )
 
-// TODO this assumes people are using create or alter procedure (if the database supports it)
-func GetProcDiff(original map[string]common.Procedure, post map[string]common.Procedure, builder *strings.Builder) {
+func GetProcDiff(original map[string]common.Procedure, post map[string]common.Procedure, builder *strings.Builder, processedProcs map[string]bool) {
 	//If exists in post but not pre drop procedure
 	//If exists in pre but not post create procedure
 	//If exists in both create "ALTER" procedure
 
-	processedProcs := make(map[string]bool)
-
-	for key, _ := range original {
+	for key, ori := range original {
+		if _, exists := processedProcs[key]; exists {
+			continue
+		}
 		if prev, ex := post[key]; ex {
-			builder.WriteString(prev.Definition)
+			if prev.Definition == ori.Definition {
+				builder.WriteString(prev.Definition)
+			}
 		}
 		processedProcs[key] = true
 	}

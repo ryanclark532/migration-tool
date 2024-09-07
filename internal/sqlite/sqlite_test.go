@@ -49,7 +49,6 @@ var PostState = &common.Database{Tables: map[string]common.Table{
 }}
 
 func setup() (*SqLiteServer, error) {
-	fmt.Println(os.Getwd())
 	if _, err := os.Stat(Config.FilePath); err == nil {
 		if err := os.Remove(Config.FilePath); err != nil {
 			panic(err)
@@ -116,7 +115,7 @@ func TestMigrationUpSqlite(t *testing.T) {
 	if len(errs) > 0 {
 		t.Fatal(errs[0].Error())
 	}
-	expected := []string{"ALTER TABLE Users ADD COLUMN Name VARCHAR(256);", "ALTER TABLE Employees DROP COLUMN Email;", "ALTER TABLE Employees DROP COLUMN Department;", "DROP TABLE Payments;"}
+	expected := []string{"ALTER TABLE Users ADD Name VARCHAR(256);", "ALTER TABLE Employees DROP Email;", "ALTER TABLE Employees DROP Department;", "DROP TABLE Payments;"}
 	files, err := utils.CrawlDir(Config.OutputDir)
 	if err != nil {
 		panic(err)

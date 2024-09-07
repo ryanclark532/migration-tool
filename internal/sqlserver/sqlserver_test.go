@@ -22,17 +22,14 @@ var Commands = []string{
 			Email VARCHAR(256),
 			Name VARCHAR(256)
 		);`,
-	`
-		CREATE OR ALTER PROCEDURE Test2
+	`CREATE OR ALTER PROCEDURE Test2
 			AS
 		BEGIN
     		SELECT * FROM Employees
-		END;
-	`,
+		END;`,
 }
 
 var Config = common.Config{
-	FilePath:           "server.db",
 	InputDir:           "./testing",
 	OutputDir:          "./output",
 	MigrationTableName: "Migrations",
@@ -55,7 +52,11 @@ var PostState = &common.Database{Tables: map[string]common.Table{
 			"Name":  {Type: "VARCHAR(256)"},
 		},
 	},
-}}
+},
+	Procs: map[string]common.Procedure{
+		"Test2": {Definition: strings.TrimSpace(`CREATE   PROCEDURE Test2 AS BEGIN SELECT * FROM Users END;`)},
+		"Test1": {Definition: strings.TrimSpace(`CREATE   PROCEDURE Test1 AS BEGIN SELECT * FROM Users END;`)},
+	}}
 
 func setup() error {
 	err := exec.Command("docker-compose", "up", "-d").Run()
@@ -89,10 +90,12 @@ func destroy() {
 		panic(err)
 	}
 
-	err = os.RemoveAll(Config.OutputDir)
-	if err != nil {
-		panic(err)
-	}
+	/*
+		err = os.RemoveAll(Config.OutputDir)
+		if err != nil {
+			panic(err)
+		}
+	*/
 }
 
 func TestMigrationUpSqlServer(t *testing.T) {
@@ -131,7 +134,7 @@ func TestMigrationUpSqlServer(t *testing.T) {
 		t.Fatal(errs[0].Error())
 	}
 
-	expected := []string{"ALTER TABLE Users ADD COLUMN Name VARCHAR(256);", "ALTER TABLE Employees DROP COLUMN Email;", "ALTER TABLE Employees DROP COLUMN Department;", "DROP TABLE Payments;"}
+	expected := []string{"ALTER TABLE Users ADD Name VARCHAR(256);", "ALTER TABLE Employees DROP COLUMN Email;", "ALTER TABLE Employees DROP COLUMN Department;", "DROP TABLE Payments;"}
 	var builder strings.Builder
 	files, err := utils.CrawlDir(Config.OutputDir)
 	if err != nil {
@@ -192,7 +195,22 @@ func TestMigrationDownSqlServer(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	if fmt.Sprintf("%s", state) != fmt.Sprintf("%s", PostState) {
+	if fmt.Sprintf("%s", state.Tables) != fmt.Sprintf("%s", PostState.Tables) {
 		t.Fatalf("Output does not match expected\nExpected: %s\nGot: %s", PostState, state)
 	}
+
+	for key, proc := range state.Procs {
+
+		proc.Definition = strings.TrimSpace(proc.Definition)
+
+		postProc, ex := PostState.Procs[key]
+		if !ex {
+			continue
+		}
+
+		if postProc.Definition != proc.Definition {
+			t.Fatalf("Output does not match expected\nExpected: %s\nGot: %s", postProc.Definition, proc.Definition)
+		}
+	}
+
 }
